@@ -253,8 +253,7 @@ function aggCost(plan){
 const PURE = [
   {name:"Supramuncă și inactivitate", desc:"20 muncitori constant, producția = cererea", plan:[[20,60000],[20,140000],[20,100000],[20,40000]]},
   {name:"Urmărirea cererii (angajări/demiteri)", desc:"muncitori = cerere ÷ 5.000", plan:[[12,60000],[28,140000],[20,100000],[8,40000]]},
-  {name:"Producția = cererea medie", desc:"20 muncitori, 85.000 L în fiecare trimestru", plan:[[20,85000],[20,85000],[20,85000],[20,85000]]},
-  {name:"Plan optim (mixt)", desc:"capacitate plină T1–T3, stoc pentru vârful din T2, demiteri în T4", plan:[[20,100000],[20,100000],[20,100000],[8,40000]]}
+  {name:"Producția = cererea medie", desc:"20 muncitori, 85.000 L în fiecare trimestru", plan:[[20,85000],[20,85000],[20,85000],[20,85000]]}
 ];
 
 /* ---------- Runda 2: Atelierul de scenotehnică (reguli de prioritate) ---------- */
@@ -363,7 +362,8 @@ function teamPlan(a){
   return plan;
 }
 function scoreR1(a){
-  const r=aggCost(teamPlan(a));let errs=0;
+  const p=PURE[a.strat]||PURE[2];
+  const r=aggCost(p.plan.map(([W,Q])=>({W,Q})));let errs=0;
   for(const k of ["c1","c2","c3","c4","c5","total"]){const v=parseLei(a["k_"+k]);if(isNaN(v)||Math.abs(v-r.tot[k])>50)errs++;}
   return {base:r.tot.total,errs,cost:r.tot.total+errs*PEN1};
 }
@@ -396,7 +396,7 @@ function renderStart(){
       <div class="eq" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
       <div class="eyebrow">MANAGEMENT OPERAȚIONAL · STUDIU DE CAZ</div>
       <h1><span class="w">SoundWave</span> Fest<span class="o">OPS CHALLENGE</span></h1>
-      <p>Conduceți operațiunile festivalului: berăria proprie, atelierul de scenotehnică și crizele din weekend. Fiecare decizie are un cost. Câștigă echipa cu cel mai mic cost total.</p>
+      <p>Conduceți operațiunile festivalului: berea artizanală a festivalului, atelierul de scenotehnică și crizele din weekend. Fiecare decizie are un cost. Câștigă echipa cu cel mai scăzut cost total.</p>
       <div class="band" aria-hidden="true"><span>COST MINIM CÂȘTIGĂ · PLANIFICARE AGREGAT · REGULI DE PRIORITATE · CRIZĂ · 30 MINUTE · COST MINIM CÂȘTIGĂ · PLANIFICARE AGREGAT · REGULI DE PRIORITATE · CRIZĂ · 30 MINUTE · </span></div>
     </section>
     <form class="card stack" id="startForm" novalidate>
@@ -412,7 +412,7 @@ function renderStart(){
     </form>
     <div class="card stack small">
       <h3>Cum se calculează costul echipei</h3>
-      <p><b>Runda 1 · Berăria</b> costul planului vostru agregat (c1–c5) + 15.000 lei pentru fiecare cost calculat greșit.</p>
+      <p><b>Runda 1 · SoundWave Brew</b> costul strategiei de planificare agregat alese (c1–c5) + 15.000 lei pentru fiecare cost calculat greșit.</p>
       <p><b>Runda 2 · Atelierul</b> costul regulii de prioritate alese + 10.000 lei pentru fiecare indicator calculat greșit.</p>
       <p><b>Runda 3 · Criză</b> costul deciziilor voastre.</p>
       <p><b>Bonus de viteză</b> −500 lei pentru fiecare minut rămas când trimiteți ultima rundă (maximum −10.000 lei).</p>
@@ -449,15 +449,16 @@ function submitBlock(r,extra){
 
 function round1(){
   const dis=S.sent.r1?"disabled":"";
-  const rows=DEM.map((d,i)=>`<div class="p">T${i+1}</div><div class="dm">${lei(d)}</div>
-    <input class="num" type="text" inputmode="numeric" id="w${i+1}" data-k="w${i+1}" value="${val("w"+(i+1))}" placeholder="nr." aria-label="Muncitori T${i+1}" autocomplete="off">
-    <input class="num" type="text" inputmode="numeric" id="q${i+1}" data-k="q${i+1}" value="${val("q"+(i+1))}" placeholder="litri" aria-label="Producție T${i+1}" autocomplete="off">`).join("");
+  const strat=[
+    ["Supramuncă și inactivitate","Păstrați cei 20 de muncitori în toate trimestrele. Producția este egală cu cererea: ce depășește capacitatea se face prin supramuncă, iar muncitorii neutilizați rămân inactivi."],
+    ["Urmărirea cererii prin angajări și demiteri","Producția este egală cu cererea, iar numărul de muncitori se ajustează în fiecare trimestru astfel încât să acopere exact cererea."],
+    ["Producție constantă, egală cu cererea medie","Păstrați cei 20 de muncitori și produceți în fiecare trimestru cererea medie anuală. Surplusul rămâne în stoc, iar lipsa devine deficit."]];
   return `<div class="stack">
   <div class="stage s1 stack">
     <span class="tag">RUNDA 1 · ~13 MIN</span>
-    <h2>Berăria SoundWave Brew</h2>
-    <p>Festivalul are berăria lui. Ea livrează bere la festival și la barurile partenere tot anul. Faceți planul agregat pentru următoarele 4 trimestre, cu cel mai mic cost.</p>
-    <p>Acum berăria are <b>20 de muncitori</b>, fiecare cu o normă de <b>5.000 L pe trimestru</b>. Nu există stoc inițial.</p>
+    <h2>SoundWave Brew</h2>
+    <p>Festivalul are propria marcă de bere artizanală, pe care o livrează la festival și la barurile partenere pe tot parcursul anului. Elaborați planul agregat pentru următoarele 4 trimestre.</p>
+    <p>Berăria are acum <b>20 de muncitori</b>, fiecare cu o normă de <b>5.000 L pe trimestru</b>. Nu există stoc inițial.</p>
     <div class="tablewrap card" style="padding:6px 8px"><table><thead><tr><th>Trimestru</th><th class="n">T1</th><th class="n">T2</th><th class="n">T3</th><th class="n">T4</th></tr></thead>
       <tbody><tr><td>Cerere (L)</td>${DEM.map(d=>`<td class="n">${lei(d)}</td>`).join("")}</tr></tbody></table></div>
     <div class="card cg">
@@ -467,18 +468,16 @@ function round1(){
       <span class="sym">c4</span><span>Deficit: <b>8 lei / L</b> lipsă la sfârșitul trimestrului (deficitul se reportează)</span>
       <span class="sym">c5</span><span>Angajare / concediere: <b>3.000 lei / persoană</b></span>
     </div>
-    <div class="formula">Capacitate = muncitori × 5.000 · S(t) = S(t−1) + Qs − Qd · c3 = 6.000 × (capacitate − Qs) ÷ 5.000</div>
-    <p class="small">Puteți folosi o strategie pură din curs sau vă construiți propriul plan. Echipa cu planul cel mai ieftin câștigă runda.</p>
+    <p class="small">Analizați cele trei strategii din curs și alegeți-o pe cea potrivită. Câștigă runda echipa cu planul cel mai bun, adică cu cel mai scăzut cost.</p>
   </div>
   <fieldset class="stack" ${dis}>
-    <div class="q"><div class="qh"><div class="qt">Planul vostru</div></div>
-      <div class="plan"><div class="h">Trim.</div><div class="h">Cerere (L)</div><div class="h">Muncitori</div><div class="h">Producție Qs (L)</div>${rows}</div>
-      <p class="small muted">Numărul de muncitori este cel din trimestrul respectiv, după angajări sau concedieri.</p></div>
-    <div class="q"><div class="qh"><div class="qt">Costurile planului vostru, pe tot anul</div><span class="pts">−15.000 lei / greșeală</span></div>
+    <div class="q"><div class="qh"><div class="qt">Ce strategie de planificare agregat alegeți?</div><span class="pts">costul strategiei</span></div>
+      <div class="opts">${strat.map((s,i)=>`<label class="opt"><input type="radio" name="strat" value="${i}" ${String(S.a.strat)===String(i)?"checked":""}><span><b>${s[0]}</b><br><span class="small muted">${s[1]}</span></span></label>`).join("")}</div></div>
+    <div class="q"><div class="qh"><div class="qt">Costurile strategiei alese, pe tot anul</div><span class="pts">+15.000 lei / greșeală</span></div>
       <div class="stack" style="gap:8px">
         ${[["c1","c1 · stoc"],["c2","c2 · supramuncă"],["c3","c3 · inactivitate"],["c4","c4 · deficit"],["c5","c5 · angajare/concediere"],["total","Cost total"]].map(([k,l])=>`<div class="unit"><label for="k_${k}" style="flex:0 0 46%;font-weight:700;font-size:.9rem">${l}</label><input class="num" type="text" inputmode="numeric" id="k_${k}" data-k="k_${k}" value="${val("k_"+k)}" placeholder="lei" autocomplete="off"></div>`).join("")}
       </div>
-      <p class="small muted">Scrieți 0 pentru costurile care nu apar în planul vostru.</p></div>
+      <p class="small muted">Scrieți 0 pentru costurile care nu apar în strategia aleasă.</p></div>
   </fieldset>
   ${submitBlock(1)}
   </div>`;
@@ -500,7 +499,6 @@ function round2(){
       <span class="sym">1.000</span><span>lei pentru fiecare zi de staționare a unui stand în atelier</span>
       <span class="sym">3.000</span><span>lei penalitate de la sponsor pentru fiecare zi de întârziere</span>
     </div>
-    <div class="formula">Cost regulă = 1.000 × Σ timp de staționare + 3.000 × Σ timp de întârziere</div>
     <div class="card small stack" style="gap:6px">
       <p><b>Rezerva de timp</b> = Dp − Tp. <b>Timp de staționare</b> = Tp + timpii produselor dinainte. <b>Timp de întârziere</b> = Ts − Dp; dacă iese negativ, se consideră 0.</p>
       <p><b>Timp mediu petrecut în atelier</b> = Σ timp de staționare ÷ 7. <b>Timp mediu de întârziere</b> = Σ timp de întârziere ÷ 7. Scrieți mediile cu două zecimale.</p>
@@ -510,9 +508,9 @@ function round2(){
   <fieldset class="stack" ${dis}>
     <div class="q"><div class="qh"><div class="qt">Ce regulă de prioritate alegeți?</div><span class="pts">costul regulii</span></div>
       <div class="opts">${RULES.map((r,i)=>`<label class="opt"><input type="radio" name="rule" value="${i}" ${String(a.rule)===String(i)?"checked":""}><span>${r.label}</span></label>`).join("")}</div></div>
-    <div class="q"><div class="qh"><div class="qt">Ordinea de fabricație după regula aleasă</div><span class="pts">−10.000 dacă e greșită</span></div>
+    <div class="q"><div class="qh"><div class="qt">Ordinea de fabricație după regula aleasă</div><span class="pts">+10.000 lei dacă e greșită</span></div>
       <div class="seq"><div class="slots" style="grid-template-columns:repeat(7,1fr)">${slots}</div><div class="chips">${chips}<button type="button" class="chip reset" data-reset="1" ${S.sent.r2?"disabled":""}>Șterge</button></div></div></div>
-    <div class="q"><div class="qh"><div class="qt">Indicatorii regulii alese</div><span class="pts">−10.000 / greșeală</span></div>
+    <div class="q"><div class="qh"><div class="qt">Indicatorii regulii alese</div><span class="pts">+10.000 lei / greșeală</span></div>
       <div class="stack" style="gap:8px">
         ${[["st","Σ timp de staționare","zile","numeric"],["lt","Σ timp de întârziere","zile","numeric"],["avgst","Timp mediu petrecut în atelier","zile","decimal"],["avglt","Timp mediu de întârziere","zile","decimal"],["cost","Cost total al regulii","lei","numeric"]].map(([k,l,u,m])=>`<div class="unit"><label for="${k}" style="flex:0 0 46%;font-weight:700;font-size:.9rem">${l}</label><input class="num" type="text" inputmode="${m}" id="${k}" data-k="${k}" value="${val(k)}" placeholder="${u}" autocomplete="off"></div>`).join("")}
       </div></div>
@@ -540,7 +538,7 @@ function renderGame(){
   app.innerHTML=`<div class="wrap">
     <div class="topbar"><div class="team">#${S.team} · ${esc(S.name)}</div><div class="timer" id="timer">${mmss(remaining())}</div></div>
     <div class="tabs" role="tablist">
-      <button class="tab t1" role="tab" aria-selected="${tab===1}" data-tab="1">Runda 1<small>${sm(1,"Berăria")}</small></button>
+      <button class="tab t1" role="tab" aria-selected="${tab===1}" data-tab="1">Runda 1<small>${sm(1,"Berea")}</small></button>
       <button class="tab t2" role="tab" aria-selected="${tab===2}" data-tab="2">Runda 2<small>${sm(2,"Atelierul")}</small></button>
       <button class="tab t3" role="tab" aria-selected="${tab===3}" data-tab="3">Runda 3<small>${sm(3,"Criză")}</small></button>
     </div>
@@ -564,7 +562,7 @@ function renderGame(){
 }
 function missing(r){
   const a=S.a;
-  if(r===1){for(let t=1;t<=4;t++){if(String(a["w"+t]||"").trim()===""||String(a["q"+t]||"").trim()==="")return "Completați numărul de muncitori și producția pentru toate cele 4 trimestre.";}}
+  if(r===1&&a.strat===undefined)return "Alegeți o strategie de planificare agregat.";
   if(r===2&&a.rule===undefined)return "Alegeți o regulă de prioritate.";
   if(r===3&&R3.some(q=>a[q.id]===undefined))return "Alegeți o variantă pentru fiecare situație.";
   return "";
@@ -605,10 +603,10 @@ function renderResults(){
     <div class="card stack" style="text-align:center;align-items:center">
       <div class="label">Costul total al echipei</div>
       <div class="score" style="font-size:clamp(2.4rem,12vw,4.2rem);color:var(--violet)">${lei(total)} <span style="font-size:.4em">lei</span></div>
-      <div class="muted small">Cu cât mai mic, cu atât mai bine.</div>
+      <div class="muted small">Un cost mai mic înseamnă un loc mai bun în clasament.</div>
     </div>
     <div class="chipsrow">
-      <div class="mini" style="background:var(--pink-soft)"><span>Berăria</span><b style="font-size:.95rem">${lei(r1)}</b></div>
+      <div class="mini" style="background:var(--pink-soft)"><span>Berea</span><b style="font-size:.95rem">${lei(r1)}</b></div>
       <div class="mini" style="background:var(--cyan-soft)"><span>Atelierul</span><b style="font-size:.95rem">${lei(r2)}</b></div>
       <div class="mini" style="background:var(--orange-soft)"><span>Criză</span><b style="font-size:.95rem">${lei(r3)}</b></div>
       <div class="mini" style="background:var(--sun-soft)"><span>Bonus</span><b style="font-size:.95rem">−${lei(b)}</b></div>
@@ -660,8 +658,8 @@ function renderAdmin(){
       <button class="btn pink" type="submit">Adaugă</button>
       <div id="addMsg" class="small" style="flex-basis:100%" hidden></div>
     </form>
-    ${list.length?`<div class="board"><div class="brow head"><div>Loc</div><div>Echipa</div><div class="c">Berăria</div><div class="c">Atelierul</div><div class="c">Criză</div><div class="c">Bonus</div><div style="text-align:right">Cost total</div><div></div></div>${rows}</div>`
-      :`<div class="empty">Clasamentul apare aici, de la cel mai mic cost la cel mai mare. Introduceți codurile afișate pe telefoanele echipelor la final.</div>`}
+    ${list.length?`<div class="board"><div class="brow head"><div>Loc</div><div>Echipa</div><div class="c">Berea</div><div class="c">Atelierul</div><div class="c">Criză</div><div class="c">Bonus</div><div style="text-align:right">Cost total</div><div></div></div>${rows}</div>`
+      :`<div class="empty">Clasamentul apare aici, ordonat de la cel mai scăzut cost la cel mai ridicat. Introduceți codurile afișate pe telefoanele echipelor la final.</div>`}
     ${showSol?solutionsHTML():""}
     <div class="row" style="justify-content:space-between">
       <button class="link" id="back" type="button">Înapoi la joc</button>
@@ -681,7 +679,6 @@ function renderAdmin(){
   $("#solBtn").onclick=()=>{showSol=!showSol;renderAdmin();};
   $("#podBtn").onclick=showPodium;$("#back").onclick=goGame;
   $("#wipe").onclick=()=>{if(!wipeConfirm){wipeConfirm=true;renderAdmin();return;}A={entries:[]};persistA();wipeConfirm=false;renderAdmin();};
-  const cb=$("#calcBtn");if(cb)cb.onclick=runCalc;
 }
 
 function aggTable(plan){
@@ -704,15 +701,9 @@ function solutionsHTML(){
      <tr><td colspan="4"><b>Total</b></td><td class="n"><b>${ev.st}</b></td><td class="n"><b>${ev.lt}</b></td></tr></tbody></table></div>
      <p class="small" style="margin-top:6px">Timp mediu în atelier <b>${dec2(ev.avgst)}</b> zile · Timp mediu de întârziere <b>${dec2(ev.avglt)}</b> zile<br>Cost = 1.000 × ${ev.st} + 3.000 × ${ev.lt} = <b>${lei(ev.cost)} lei</b></p></div>`;}).join("");
   return `<section class="stack sol">
-    <h2 style="color:var(--pink)">Soluții · Runda 1 · Berăria</h2>
-    <p class="small">Fiecare echipă are planul ei, deci costurile raportate au fost verificate față de propriul plan. Mai jos sunt strategiile pure din curs și planul cu cel mai mic cost.</p>
+    <h2 style="color:var(--pink)">Soluții · Runda 1 · SoundWave Brew</h2>
+    <p class="small">Strategia cu cel mai scăzut cost este urmărirea cererii prin angajări și demiteri: 132.000 lei.</p>
     <div class="stack">${pure}</div>
-    <div class="card stack"><h3>Verifică planul unei echipe</h3>
-      <div class="calc"><div class="h label">Muncitori</div><div></div><div></div><div></div>
-        ${[1,2,3,4].map(t=>`<input class="num" type="text" inputmode="numeric" id="cw${t}" placeholder="T${t}">`).join("")}
-        <div class="h label" style="grid-column:1/-1">Producție (L)</div>
-        ${[1,2,3,4].map(t=>`<input class="num" type="text" inputmode="numeric" id="cq${t}" placeholder="T${t}">`).join("")}</div>
-      <button class="btn cyan" id="calcBtn" type="button">Calculează</button><div id="calcOut"></div></div>
     <h2 style="color:var(--cyan)">Soluții · Runda 2 · Atelierul</h2>
     <div class="grid2" style="grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr))">${rules}</div>
     <div class="card small"><p>Cea mai mică durată a procesării dă cel mai mic timp de staționare, dar cea mai mică rezervă de timp reduce mult întârzierile. La 3.000 lei pe zi de întârziere, rezerva minimă câștigă: 120.000 lei, față de 129.000 lei.</p></div>
