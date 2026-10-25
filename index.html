@@ -193,68 +193,116 @@ fieldset:disabled .q{opacity:.75}
 .ok{color:var(--ok);font-weight:800}
 </style>
 
+<style>
+.plan{display:grid;grid-template-columns:40px minmax(0,1fr) minmax(0,1fr) minmax(0,1.35fr);gap:6px;align-items:center}
+.plan .h{font-size:.68rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);line-height:1.2}
+.plan .p{font-family:var(--f-display);font-weight:700;font-size:.85rem}
+.plan .dm{font-variant-numeric:tabular-nums;font-weight:700}
+.plan input{padding:10px 8px;font-size:.95rem}
+.formula{font-family:var(--f-mono);font-size:.8rem;background:var(--violet-soft);padding:8px 10px;border-radius:10px;overflow-x:auto;white-space:nowrap}
+.cg{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;align-items:baseline;font-size:.9rem}
+.cg .sym{font-family:var(--f-mono);font-weight:700;color:var(--pink)}
+.brow{grid-template-columns:52px minmax(0,1fr) repeat(4,100px) 120px 34px}
+.brow .tot{color:var(--violet)}
+@media (max-width:640px){.brow{grid-template-columns:40px minmax(0,1fr) 104px 28px}}
+.pen{font-size:.8rem;font-weight:700;color:var(--bad)}
+.calc{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+</style>
 <div id="app"></div>
 <canvas id="confetti" hidden></canvas>
 
 <script>
 (function(){
 "use strict";
-const DURATION = 30*60; // secunde
+const DURATION = 30*60;
 const ADMIN_PIN = "2026";
-const SECRET = "SW26-ASE";
-const KEY_TEAM = "swfest_team_v1";
-const KEY_ADMIN = "swfest_admin_v1";
+const SECRET = "SW26-ASE-COST";
+const KEY_TEAM = "swfest_team_v2";
+const KEY_ADMIN = "swfest_admin_v2";
 
-/* ---------- Date joc ---------- */
-const BANDS = [
-  {id:"A", name:"Neon Wolves", t:4, d:10},
-  {id:"B", name:"Lila & The Tides", t:7, d:14},
-  {id:"C", name:"Basskraft", t:2, d:5},
-  {id:"D", name:"Cerul Roșu", t:5, d:12},
-  {id:"E", name:"Yuzu Collective", t:3, d:20}
+/* ---------- Runda 1: Berăria SoundWave (planificare agregat) ---------- */
+const DEM = [60000,140000,100000,40000];
+const QM = 5000, W0 = 20;
+const C = {c1:2, c2:4, c3:6000, c4:8, c5:3000};
+const PEN1 = 15000;
+
+function aggCost(plan){
+  let W=W0,S=0,Df=0;const rows=[];const tot={c1:0,c2:0,c3:0,c4:0,c5:0};
+  plan.forEach((p,t)=>{
+    const c5=Math.abs(p.W-W)*C.c5; const hired=p.W-W; W=p.W;
+    const cap=W*QM;
+    const c2=p.Q>cap?(p.Q-cap)*C.c2:0;
+    const c3=p.Q<cap?((cap-p.Q)/QM)*C.c3:0;
+    const net=S-Df+p.Q-DEM[t];
+    S=net>0?net:0; Df=net<0?-net:0;
+    const c1=S*C.c1, c4=Df*C.c4;
+    tot.c1+=c1;tot.c2+=c2;tot.c3+=c3;tot.c4+=c4;tot.c5+=c5;
+    rows.push({t:t+1,W,hired,cap,Q:p.Q,D:DEM[t],S,Df,c1,c2,c3,c4,c5,sum:c1+c2+c3+c4+c5});
+  });
+  tot.total=tot.c1+tot.c2+tot.c3+tot.c4+tot.c5;
+  return {tot,rows};
+}
+const PURE = [
+  {name:"Supramuncă și inactivitate", desc:"20 muncitori constant, producția = cererea", plan:[[20,60000],[20,140000],[20,100000],[20,40000]]},
+  {name:"Urmărirea cererii (angajări/demiteri)", desc:"muncitori = cerere ÷ 5.000", plan:[[12,60000],[28,140000],[20,100000],[8,40000]]},
+  {name:"Producția = cererea medie", desc:"20 muncitori, 85.000 L în fiecare trimestru", plan:[[20,85000],[20,85000],[20,85000],[20,85000]]},
+  {name:"Plan optim (mixt)", desc:"capacitate plină T1–T3, stoc pentru vârful din T2, demiteri în T4", plan:[[20,100000],[20,100000],[20,100000],[8,40000]]}
 ];
-const DEMAND = [20,30,50,60,40,40];
 
-const R1 = {
-  num:[
-    {id:"costA", pts:30, text:"Costul total al strategiei A (urmărirea cererii)", unit:"lei"},
-    {id:"costB", pts:30, text:"Costul total al strategiei B (forță de muncă constantă 40)", unit:"lei"},
-    {id:"costC", pts:30, text:"Costul total al strategiei C (mixtă)", unit:"lei"},
-    {id:"idle", pts:15, text:"Câți lucrători-săptămână inactivi are strategia B, în total?", unit:"lucr.-săpt."}
-  ],
-  mc:[
-    {id:"m1", pts:15, text:"De ce StageCrew nu poate „produce pe stoc” în săptămânile liniștite, pentru săptămânile aglomerate?",
-      opts:["Pentru că salariile sunt prea mari","Pentru că serviciile nu pot fi stocate și sunt perisabile","Pentru că legislația muncii interzice","Pentru că cererea este constantă"]},
-    {id:"m2", pts:15, text:"Când cererea crește semnificativ, care este prima pârghie folosită, de regulă, de manageri?",
-      opts:["Angajarea imediată de personal permanent","Reducerea prețurilor","Supramunca (ore suplimentare)","Demiterea personalului"]},
-    {id:"m3", pts:15, text:"Cererea scade pentru o perioadă de 2–3 luni. Ce se întâmplă, de regulă, cu lucrătorii?",
-      opts:["Sunt menținuți pe activități auxiliare de servire, iar apoi pot fi demiși","Sunt demiși imediat","Sunt trimiși obligatoriu în concediu fără plată","Sunt transferați la un concurent"]},
-    {id:"m4", pts:15, text:"Când este rațional ca firma să mențină nivelul forței de muncă la variații scurte ale cererii?",
-      opts:["Mereu, indiferent de costuri","Când salariile depășesc costurile fixe","Niciodată","Când ponderea cheltuielilor salariale în costul total este mai mică decât cea a costurilor fixe"]},
-    {id:"m5", pts:15, text:"Ce strategie îi recomandați managerului StageCrew, pe criteriul costului total?",
-      opts:["A – urmărirea cererii","B – forță de muncă constantă","C – strategia mixtă"]}
-  ]
-};
-const RULES = ["FCFS","SPT","EDD","LPT"];
-const R2 = { seqPts:15, metPts:15, mc:[
-  {id:"b1", pts:10, text:"Ce regulă dă cel mai mic timp mediu de finalizare?", opts:["FCFS","SPT","EDD","LPT"]},
-  {id:"b2", pts:10, text:"Ce regulă dă cea mai mică întârziere medie?", opts:["FCFS","SPT","EDD","LPT"]}
-]};
-const R3 = { mc:[
-  {id:"c1", pts:20, text:"Sâmbătă plouă toată ziua. Cererea la food court scade la jumătate, dar doar pentru 2 zile. Ce faci cu personalul?",
-    opts:["Demiți jumătate din personal","Păstrezi personalul și îl muți pe activități auxiliare (informare, acces, curățenie)","Angajezi temporari","Închizi food court-ul până la final"]},
-  {id:"c2", pts:20, text:"Se anunță un headliner surpriză. Cererea crește cu 30%, doar pentru o săptămână. Prima ta mișcare?",
-    opts:["Supramuncă pentru echipa existentă","Angajezi personal permanent","Demiți personalul mai lent","Nu faci nimic, clienții așteaptă"]},
-  {id:"c3", pts:20, text:"Organizatorul penalizează fiecare oră de întârziere față de termenul trupei. Ce regulă alegi pentru pregătirea scenei?",
-    opts:["LPT","FCFS","EDD","SPT"]},
-  {id:"c4", pts:20, text:"Directorul vrea ca trupele să fie gata, în medie, cât mai repede, ca să se elibereze backstage-ul. Ce regulă alegi?",
-    opts:["SPT","EDD","LPT","FCFS"]}
-]};
+/* ---------- Runda 2: Atelierul de scenotehnică (reguli de prioritate) ---------- */
+const JOBS = [
+  {id:"A", name:"Stand Lumina Bank", t:4, d:13},
+  {id:"B", name:"Turnul Energix", t:5, d:9},
+  {id:"C", name:"Cabina foto Pixo", t:1, d:2},
+  {id:"D", name:"Lounge Verde Mobile", t:2, d:12},
+  {id:"E", name:"Scena DJ Nordic Cola", t:6, d:19},
+  {id:"F", name:"Roata Zenit Auto", t:7, d:21},
+  {id:"G", name:"Bar Coral Cider", t:3, d:15}
+];
+const RANDOM_ORDER = "DAGCFBE";
+const A_ST = 1000, B_LT = 3000, PEN2 = 10000;
+const RULES = [
+  {id:"FCFS", label:"Primul sosit, primul servit"},
+  {id:"SLK", label:"Cea mai mică rezervă de timp"},
+  {id:"SPT", label:"Cea mai mică durată a procesării"},
+  {id:"ANY", label:"Oricare produs (ordinea trasă la sorți)"}
+];
+function ruleOrder(id){
+  const ids=JOBS.map(j=>j.id), J=Object.fromEntries(JOBS.map(j=>[j.id,j]));
+  if(id==="FCFS")return ids.join("");
+  if(id==="ANY")return RANDOM_ORDER;
+  if(id==="SPT")return ids.slice().sort((x,y)=>J[x].t-J[y].t||ids.indexOf(x)-ids.indexOf(y)).join("");
+  return ids.slice().sort((x,y)=>(J[x].d-J[x].t)-(J[y].d-J[y].t)||ids.indexOf(x)-ids.indexOf(y)).join("");
+}
+function evalOrder(ord){
+  const J=Object.fromEntries(JOBS.map(j=>[j.id,j]));let t=0,st=0,lt=0;const rows=[];
+  for(const id of ord){const j=J[id];t+=j.t;const l=Math.max(0,t-j.d);st+=t;lt+=l;rows.push({id,t:j.t,d:j.d,r:j.d-j.t,ts:t,l});}
+  return {rows,st,lt,avgst:st/JOBS.length,avglt:lt/JOBS.length,cost:st*A_ST+lt*B_LT};
+}
 
-// Cheia, codificată ușor ca să nu fie la vedere
-const KEY = JSON.parse(atob("eyJjb3N0QSI6Mjg4MDAwLCJjb3N0QiI6Mjk1MjAwLCJjb3N0QyI6Mjc1MDAwLCJpZGxlIjozMCwibTEiOjEsIm0yIjoyLCJtMyI6MCwibTQiOjMsIm01IjoyLCJzZXEiOnsiU1BUIjoiQ0VBREIiLCJFREQiOiJDQURCRSIsIkxQVCI6IkJEQUVDIn0sImZsb3ciOnsiRkNGUyI6MTMuNCwiU1BUIjoxMC4yLCJFREQiOjExLjYsIkxQVCI6MTV9LCJsYXRlIjp7IkZDRlMiOjMsIlNQVCI6MS44LCJFREQiOjEsIkxQVCI6NC40fSwiYjEiOjEsImIyIjoyLCJjMSI6MSwiYzIiOjAsImMzIjoyLCJjNCI6MH0="));
+/* ---------- Runda 3: Criză (servicii) ---------- */
+const R3 = [
+  {id:"k1", text:"Se anunță un headliner surpriză. Barurile au nevoie de 6 barmani în plus pentru weekendul festivalului.",
+    opts:[["Supramuncă pentru barmanii existenți: 1.500 lei pentru fiecare barman-echivalent",9000],
+          ["Angajezi 6 barmani și îi concediezi după festival: 600 lei angajare + 800 lei concediere + 1.000 lei salariu, de persoană",14400],
+          ["Iei 6 temporari de la agenție: 1.800 lei de persoană",10800],
+          ["Nu acoperi cererea: pierzi 4.000 de comenzi × 5 lei marjă",20000]]},
+  {id:"k2", text:"Plouă două zile. Cererea la food court scade la jumătate, iar 10 lucrători nu au de lucru în acest timp.",
+    opts:[["Îi concediezi și îi reangajezi după ploaie: 800 lei concediere + 600 lei angajare, de persoană",14000],
+          ["Îi păstrezi pe activități auxiliare (informare, acces, curățenie): inactivitate 250 lei / lucrător / zi",5000],
+          ["Îi păstrezi fără activitate și închizi standurile: 250 lei / lucrător / zi + 3.000 lei pierdere de imagine",8000]]},
+  {id:"k3", text:"După festival rămân 8.000 L de bere în stoc. Următorul festival este peste 2 trimestre.",
+    opts:[["Păstrezi berea în stoc: 2 lei / L / trimestru",32000],
+          ["Distrugi berea: pierzi costul de producție de 6 lei / L",48000],
+          ["O vinzi barurilor partenere cu reducere: pierzi 3 lei / L",24000]]},
+  {id:"k4", text:"Pentru ultima zi a festivalului lipsesc 5.000 L de bere. Berea de rezervă poate fi îmbuteliată doar cu ore suplimentare.",
+    opts:[["Cumperi de la altă berărie: costul deficitului, 8 lei / L",40000],
+          ["Nu acoperi lipsa: pierzi 10 lei / L din marjă și imagine",50000],
+          ["Supramuncă la berărie: 4 lei / L",20000]]}
+];
+const R3_MIN = 9000+5000+24000+20000;
 
-const MAX = {r1:180, r2:185, r3:80, bonus:30};
+const BONUS_PER_MIN = 500, BONUS_MAX_MIN = 20;
 
 /* ---------- Utilitare ---------- */
 const $ = (s,el=document)=>el.querySelector(s);
@@ -262,66 +310,76 @@ const app = $("#app");
 function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 function load(k){try{const v=localStorage.getItem(k);return v?JSON.parse(v):null;}catch(e){return null;}}
 function save(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
-function del(k){try{localStorage.removeItem(k);}catch(e){}}
-function fmtLei(n){return n.toLocaleString("ro-RO");}
-function parseLei(s){const d=String(s||"").replace(/[^\d]/g,"");return d?Number(d):NaN;}
-function parseDec(s){let t=String(s||"").trim().replace(/\s/g,"");if(!t)return NaN;if(t.includes(",")&&t.includes("."))t=t.replace(/\./g,"");t=t.replace(",",".");return Number(t);}
+const lei = n => Math.round(n).toLocaleString("ro-RO");
+function parseLei(s){const d=String(s==null?"":s).replace(/[^\d]/g,"");return d?Number(d):NaN;}
+function parseDec(s){let t=String(s==null?"":s).trim().replace(/\s/g,"");if(!t)return NaN;if(t.includes(",")&&t.includes("."))t=t.replace(/\./g,"");t=t.replace(",",".");return Number(t);}
+function dec2(x){return (Math.round(x*100)/100).toFixed(2).replace(".",",");}
 function mmss(sec){sec=Math.max(0,Math.ceil(sec));return String(Math.floor(sec/60)).padStart(2,"0")+":"+String(sec%60).padStart(2,"0");}
 
-/* ---------- Cod de verificare (base32 Crockford, 45 biți) ---------- */
+/* ---------- Cod de verificare (BigInt, 60 biți, base32 Crockford) ---------- */
 const B32="0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 function fnv(str){let h=0x811c9dc5;for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,0x01000193)>>>0;}return h>>>0;}
-function encodeCode(team,r1,r2,r3,bonus){
-  const P=((((team*256+r1)*256+r2)*128+r3)*32+bonus);
-  const chk=fnv(SECRET+"|"+P)%2048;
-  let N=P*2048+chk, out="";
-  for(let i=0;i<9;i++){out=B32[N%32]+out;N=Math.floor(N/32);}
-  return out.slice(0,3)+"-"+out.slice(3,6)+"-"+out.slice(6);
+const LIM={r1:131071,r2:4095,r3:2047,b:31};
+function encodeCode(team,r1,r2,r3,bmin){
+  const u1=Math.min(LIM.r1,Math.round(r1/100)),u2=Math.min(LIM.r2,Math.round(r2/100)),u3=Math.min(LIM.r3,Math.round(r3/100));
+  let P=BigInt(team);
+  P=(P<<17n)|BigInt(u1);P=(P<<12n)|BigInt(u2);P=(P<<11n)|BigInt(u3);P=(P<<5n)|BigInt(bmin);
+  const chk=BigInt(fnv(SECRET+"|"+P.toString())%512);
+  let N=(P<<9n)|chk,out="";
+  for(let i=0;i<12;i++){out=B32[Number(N&31n)]+out;N>>=5n;}
+  return out.slice(0,4)+"-"+out.slice(4,8)+"-"+out.slice(8);
 }
 function decodeCode(raw){
-  let s=String(raw||"").toUpperCase().replace(/[\s-]/g,"").replace(/O/g,"0").replace(/[IL]/g,"1");
-  if(s.length!==9)return null;
-  let N=0;for(const ch of s){const v=B32.indexOf(ch);if(v<0)return null;N=N*32+v;}
-  const chk=N%2048;let P=Math.floor(N/2048);
-  if(fnv(SECRET+"|"+P)%2048!==chk)return null;
-  const bonus=P%32;P=Math.floor(P/32);
-  const r3=P%128;P=Math.floor(P/128);
-  const r2=P%256;P=Math.floor(P/256);
-  const r1=P%256;const team=Math.floor(P/256);
-  if(team<1||r1>MAX.r1||r2>MAX.r2||r3>MAX.r3||bonus>MAX.bonus)return null;
-  return {team,r1,r2,r3,bonus,total:r1+r2+r3+bonus};
+  const s=String(raw||"").toUpperCase().replace(/[\s-]/g,"").replace(/O/g,"0").replace(/[IL]/g,"1");
+  if(s.length!==12)return null;
+  let N=0n;for(const ch of s){const v=B32.indexOf(ch);if(v<0)return null;N=(N<<5n)|BigInt(v);}
+  const chk=Number(N&511n);let P=N>>9n;
+  if(fnv(SECRET+"|"+P.toString())%512!==chk)return null;
+  const bmin=Number(P&31n);P>>=5n;
+  const u3=Number(P&2047n);P>>=11n;
+  const u2=Number(P&4095n);P>>=12n;
+  const u1=Number(P&131071n);const team=Number(P>>17n);
+  if(team<1||team>60||bmin>BONUS_MAX_MIN)return null;
+  const r1=u1*100,r2=u2*100,r3=u3*100,bonus=bmin*BONUS_PER_MIN;
+  return {team,r1,r2,r3,bonus,total:r1+r2+r3-bonus};
 }
 
-/* ---------- Punctare ---------- */
+/* ---------- Calculul costului echipei ---------- */
+function teamPlan(a){
+  let prev=W0;const plan=[];
+  for(let t=1;t<=4;t++){
+    let W=parseInt(String(a["w"+t]||"").replace(/[^\d]/g,""),10);if(isNaN(W))W=prev;W=Math.min(200,Math.max(0,W));
+    let Q=parseLei(a["q"+t]);if(isNaN(Q))Q=0;Q=Math.min(2000000,Q);
+    plan.push({W,Q});prev=W;
+  }
+  return plan;
+}
 function scoreR1(a){
-  let s=0;
-  for(const q of R1.num){const v=parseLei(a[q.id]);if(v===KEY[q.id])s+=q.pts;}
-  for(const q of R1.mc){if(a[q.id]!==undefined&&Number(a[q.id])===KEY[q.id])s+=q.pts;}
-  return s;
+  const r=aggCost(teamPlan(a));let errs=0;
+  for(const k of ["c1","c2","c3","c4","c5","total"]){const v=parseLei(a["k_"+k]);if(isNaN(v)||Math.abs(v-r.tot[k])>50)errs++;}
+  return {base:r.tot.total,errs,cost:r.tot.total+errs*PEN1};
 }
 function scoreR2(a){
-  let s=0;
-  for(const r of ["SPT","EDD","LPT"]){if((a["seq_"+r]||"")===KEY.seq[r])s+=R2.seqPts;}
-  for(const r of RULES){
-    const f=parseDec(a["flow_"+r]), l=parseDec(a["late_"+r]);
-    if(!isNaN(f)&&Math.abs(f-KEY.flow[r])<=0.051)s+=R2.metPts;
-    if(!isNaN(l)&&Math.abs(l-KEY.late[r])<=0.051)s+=R2.metPts;
-  }
-  for(const q of R2.mc){if(a[q.id]!==undefined&&Number(a[q.id])===KEY[q.id])s+=q.pts;}
-  return s;
+  const rule=RULES[a.rule]?RULES[a.rule].id:"ANY";
+  const ord=ruleOrder(rule), ev=evalOrder(ord);let errs=0;
+  if((a.seq||"")!==ord)errs++;
+  const chk=(k,exp,tol)=>{const v=parseDec(a[k]);if(isNaN(v)||Math.abs(v-exp)>tol)errs++;};
+  chk("st",ev.st,0.01);chk("lt",ev.lt,0.01);chk("avgst",ev.avgst,0.011);chk("avglt",ev.avglt,0.011);
+  {const v=parseLei(a.cost);if(isNaN(v)||v!==ev.cost)errs++;}
+  return {base:ev.cost,errs,cost:ev.cost+errs*PEN2,rule};
 }
 function scoreR3(a){
-  let s=0;for(const q of R3.mc){if(a[q.id]!==undefined&&Number(a[q.id])===KEY[q.id])s+=q.pts;}return s;
+  let s=0;for(const q of R3){const i=a[q.id];s+= (i!==undefined&&q.opts[i])?q.opts[i][1]:Math.max(...q.opts.map(o=>o[1]));}
+  return {base:s,errs:0,cost:s};
 }
 
 /* ---------- Stare ---------- */
 let S = load(KEY_TEAM);
-let tab = 1, tick=null, confirmRound=null, adminOK=false;
-
+let tab=1,tick=null,confirmRound=null,adminOK=false;
 function persist(){save(KEY_TEAM,S);}
 function remaining(){return DURATION-(Date.now()-S.start)/1000;}
 
-/* ---------- Ecran start ---------- */
+/* ---------- Start ---------- */
 function renderStart(){
   stopTick();
   const members=[0,1,2,3,4,5].map(i=>`<input type="text" id="m${i}" placeholder="Membru ${i+1}${i<3?'':' (opțional)'}" autocomplete="off">`).join("");
@@ -330,10 +388,9 @@ function renderStart(){
       <div class="eq" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
       <div class="eyebrow">MANAGEMENT OPERAȚIONAL · STUDIU DE CAZ</div>
       <h1><span class="w">SoundWave</span> Fest<span class="o">OPS CHALLENGE</span></h1>
-      <p>Sunteți echipa de operațiuni a festivalului. Aveți 30 de minute să planificați personalul și să ordonați pregătirea scenei. Cine are cele mai bune decizii urcă pe podium.</p>
-      <div class="band" aria-hidden="true"><span>STAFFING · REGULI DE PRIORITATE · CRIZĂ · 3 RUNDE · 30 MINUTE · STAFFING · REGULI DE PRIORITATE · CRIZĂ · 3 RUNDE · 30 MINUTE · </span></div>
+      <p>Conduceți operațiunile festivalului: berăria proprie, atelierul de scenotehnică și crizele din weekend. Fiecare decizie are un cost. Câștigă echipa cu cel mai mic cost total.</p>
+      <div class="band" aria-hidden="true"><span>COST MINIM CÂȘTIGĂ · PLANIFICARE AGREGAT · REGULI DE PRIORITATE · CRIZĂ · 30 MINUTE · COST MINIM CÂȘTIGĂ · PLANIFICARE AGREGAT · REGULI DE PRIORITATE · CRIZĂ · 30 MINUTE · </span></div>
     </section>
-
     <form class="card stack" id="startForm" novalidate>
       <h2>Înregistrați echipa</h2>
       <div class="grid2">
@@ -343,221 +400,227 @@ function renderStart(){
       <div class="field"><label>Membrii echipei</label><div class="stack" style="gap:8px">${members}</div></div>
       <div class="err" id="startErr" hidden></div>
       <button class="btn pink block" type="submit">Pornește cronometrul · 30:00</button>
-      <p class="small muted">Folosiți un singur telefon pe echipă. Răspunsurile se salvează automat, chiar dacă reîncărcați pagina.</p>
+      <p class="small muted">Un singur telefon pe echipă. Răspunsurile se salvează automat, chiar dacă reîncărcați pagina.</p>
     </form>
-
     <div class="card stack small">
-      <h3>Cum se joacă</h3>
-      <p><b>Runda 1 · Staffing</b> (180 p) planificarea agregat: angajare, demitere, supramuncă, inactivitate.</p>
-      <p><b>Runda 2 · Scena principală</b> (185 p) reguli de prioritate: FCFS, SPT, EDD, LPT.</p>
-      <p><b>Runda 3 · Criză</b> (80 p) decizii rapide în situații neprevăzute.</p>
-      <p><b>Bonus de viteză</b> până la 30 p: 1 punct pentru fiecare minut rămas când trimiteți toate rundele.</p>
-      <p class="muted">Fiecare rundă se trimite o singură dată. Scorul apare doar la final.</p>
+      <h3>Cum se calculează costul echipei</h3>
+      <p><b>Runda 1 · Berăria</b> costul planului vostru agregat (c1–c5) + 15.000 lei pentru fiecare cost calculat greșit.</p>
+      <p><b>Runda 2 · Atelierul</b> costul regulii de prioritate alese + 10.000 lei pentru fiecare indicator calculat greșit.</p>
+      <p><b>Runda 3 · Criză</b> costul deciziilor voastre.</p>
+      <p><b>Bonus de viteză</b> −500 lei pentru fiecare minut rămas când trimiteți ultima rundă (maximum −10.000 lei).</p>
+      <p class="muted">Fiecare rundă se trimite o singură dată. Costul apare doar la final.</p>
     </div>
     <div style="text-align:center"><button class="link" id="toAdmin" type="button">Zona profesorului</button></div>
   </div>`;
   $("#toAdmin").onclick=()=>{location.hash="admin";renderAdmin();};
   $("#startForm").onsubmit=e=>{
     e.preventDefault();
-    const no=parseInt($("#teamNo").value,10);
-    const name=$("#teamName").value.trim();
-    const mem=[0,1,2,3,4,5].map(i=>$("#m"+i).value.trim()).filter(Boolean);
-    const err=$("#startErr");
+    const no=parseInt($("#teamNo").value,10),name=$("#teamName").value.trim();
+    const mem=[0,1,2,3,4,5].map(i=>$("#m"+i).value.trim()).filter(Boolean),err=$("#startErr");
     if(!(no>=1&&no<=60)){err.textContent="Introduceți numărul echipei (între 1 și 60).";err.hidden=false;return;}
     if(!name){err.textContent="Dați un nume echipei.";err.hidden=false;return;}
     if(mem.length<3){err.textContent="Treceți cel puțin 3 membri.";err.hidden=false;return;}
-    S={team:no,name,members:mem,start:Date.now(),a:{},sent:{},scores:{},done:false,bonus:0};
+    S={team:no,name,members:mem,start:Date.now(),a:{},sent:{},res:{},done:false,bmin:0};
     persist();
     try{navigator.wakeLock&&navigator.wakeLock.request("screen").catch(()=>{});}catch(e){}
     tab=1;renderGame();
   };
 }
 
-/* ---------- Ecran joc ---------- */
-function mcHTML(q,a,round){
-  const opts=q.opts.map((o,i)=>`<label class="opt"><input type="radio" name="${q.id}" value="${i}" ${String(a[q.id])===String(i)?"checked":""}><span>${esc(o)}</span></label>`).join("");
-  return `<div class="q"><div class="qh"><div class="qt">${esc(q.text)}</div><span class="pts">${q.pts}p</span></div><div class="opts">${opts}</div></div>`;
+/* ---------- Componente ---------- */
+const val=k=>esc(S.a[k]==null?"":S.a[k]);
+function numQ(id,text,unit,mode,ph){
+  return `<div class="q"><div class="qh"><label class="qt" for="${id}">${text}</label></div>
+    <div class="unit"><input class="num" type="text" inputmode="${mode||"numeric"}" id="${id}" data-k="${id}" value="${val(id)}" placeholder="${ph||""}" autocomplete="off"><span>${unit}</span></div></div>`;
 }
-function submitBlock(r){
-  if(S.sent["r"+r])return `<div class="sent">✓ Runda ${r} a fost trimisă. Mergeți la runda următoare.</div>`;
+function submitBlock(r,extra){
+  if(S.sent["r"+r])return `<div class="sent">✓ Runda ${r} a fost trimisă.</div>`;
   const c=confirmRound===r;
-  return `<button class="btn ${c?'warn':'sun'} block" id="send" type="button">${c?'Confirmați? Răspunsurile nu se mai pot schimba':'Trimite Runda '+r}</button>`;
+  return `<div class="err" id="sendErr" hidden></div><button class="btn ${c?'warn':'sun'} block" id="send" type="button">${c?'Confirmați? Răspunsurile nu se mai pot schimba':'Trimite Runda '+r}</button>`;
 }
 
 function round1(){
-  const a=S.a, dis=S.sent.r1?"disabled":"";
-  const dem=DEMAND.map((d,i)=>`<td class="n">${d}</td>`).join("");
+  const dis=S.sent.r1?"disabled":"";
+  const rows=DEM.map((d,i)=>`<div class="p">T${i+1}</div><div class="dm">${lei(d)}</div>
+    <input class="num" type="text" inputmode="numeric" id="w${i+1}" data-k="w${i+1}" value="${val("w"+(i+1))}" placeholder="nr." aria-label="Muncitori T${i+1}" autocomplete="off">
+    <input class="num" type="text" inputmode="numeric" id="q${i+1}" data-k="q${i+1}" value="${val("q"+(i+1))}" placeholder="litri" aria-label="Producție T${i+1}" autocomplete="off">`).join("");
   return `<div class="stack">
   <div class="stage s1 stack">
-    <span class="tag">RUNDA 1 · ~11 MIN</span>
-    <h2>Staffing la StageCrew</h2>
-    <p>StageCrew SRL asigură personalul de servire al festivalului: baruri, food court și acces. Planificați forța de muncă pe 6 săptămâni (pregătire + festival).</p>
-    <p>Un client neservit azi nu poate fi servit săptămâna viitoare. De aceea, capacitatea trebuie să acopere cererea <b>în fiecare săptămână</b>.</p>
-    <div class="tablewrap"><table><thead><tr><th>Săptămâna</th>${DEMAND.map((d,i)=>`<th class="n">S${i+1}</th>`).join("")}</tr></thead>
-      <tbody><tr><td>Lucrători necesari</td>${dem}</tr></tbody></table></div>
-    <p class="small"><b>La început (înainte de S1)</b> StageCrew are <b>30</b> de lucrători.</p>
-    <div class="card costs">
-      <span>Salariu (plătit și când lucrătorul e inactiv)</span><b>1.000 lei / lucr. / săpt.</b>
-      <span>Angajare</span><b>600 lei / pers.</b>
-      <span>Demitere</span><b>800 lei / pers.</b>
-      <span>Supramuncă, per lucrător-echivalent acoperit</span><b>1.500 lei</b>
-      <span>Limită supramuncă (8 ore în plus la 40)</span><b>max. 20% din forța de muncă</b>
-      <span>Temporari de la agenție (doar dacă nu ajunge supramunca)</span><b>1.800 lei / lucr. / săpt.</b>
+    <span class="tag">RUNDA 1 · ~13 MIN</span>
+    <h2>Berăria SoundWave Brew</h2>
+    <p>Festivalul are berăria lui. Ea livrează bere la festival și la barurile partenere tot anul. Faceți planul agregat pentru următoarele 4 trimestre, cu cel mai mic cost.</p>
+    <p>Acum berăria are <b>20 de muncitori</b>, fiecare cu o normă de <b>5.000 L pe trimestru</b>. Nu există stoc inițial.</p>
+    <div class="tablewrap card" style="padding:6px 8px"><table><thead><tr><th>Trimestru</th><th class="n">T1</th><th class="n">T2</th><th class="n">T3</th><th class="n">T4</th></tr></thead>
+      <tbody><tr><td>Cerere (L)</td>${DEM.map(d=>`<td class="n">${lei(d)}</td>`).join("")}</tr></tbody></table></div>
+    <div class="card cg">
+      <span class="sym">c1</span><span>Întreținerea stocului: <b>2 lei / L</b> rămas la sfârșitul trimestrului</span>
+      <span class="sym">c2</span><span>Supramuncă: <b>4 lei / L</b> produs peste capacitate</span>
+      <span class="sym">c3</span><span>Inactivitate: <b>6.000 lei / muncitor</b> neutilizat într-un trimestru</span>
+      <span class="sym">c4</span><span>Deficit: <b>8 lei / L</b> lipsă la sfârșitul trimestrului (deficitul se reportează)</span>
+      <span class="sym">c5</span><span>Angajare / concediere: <b>3.000 lei / persoană</b></span>
     </div>
-    <p class="small">Angajările și demiterile se fac la începutul săptămânii.</p>
-    <div class="strat"><b>A · Urmărirea cererii</b><br>Forța de muncă este egală cu cererea în fiecare săptămână. Angajați sau demiteți cât e nevoie.</div>
-    <div class="strat" style="border-color:var(--cyan)"><b>B · Forță de muncă constantă</b><br>Angajați 10 lucrători la începutul S1 (total 40) și păstrați 40 până la final. Deficitul se acoperă întâi cu supramuncă, apoi cu temporari. Surplusul rămâne inactiv.</div>
-    <div class="strat" style="border-color:var(--orange)"><b>C · Strategie mixtă</b><br>Păstrați 30 în S1–S2. Angajați 20 la începutul S3 (total 50). În S4 acoperiți deficitul cu supramuncă. La începutul S5 demiteți 10 (total 40).</div>
+    <div class="formula">Capacitate = muncitori × 5.000 · S(t) = S(t−1) + Qs − Qd · c3 = 6.000 × (capacitate − Qs) ÷ 5.000</div>
+    <p class="small">Puteți folosi o strategie pură din curs sau vă construiți propriul plan. Echipa cu planul cel mai ieftin câștigă runda.</p>
   </div>
   <fieldset class="stack" ${dis}>
-    ${R1.num.map(q=>`<div class="q"><div class="qh"><label class="qt" for="${q.id}">${esc(q.text)}</label><span class="pts">${q.pts}p</span></div>
-      <div class="unit"><input class="num" type="text" inputmode="numeric" id="${q.id}" data-k="${q.id}" value="${esc(a[q.id]||"")}" placeholder="ex. 250000" autocomplete="off"><span>${q.unit}</span></div></div>`).join("")}
-    ${R1.mc.map(q=>mcHTML(q,a,1)).join("")}
+    <div class="q"><div class="qh"><div class="qt">Planul vostru</div></div>
+      <div class="plan"><div class="h">Trim.</div><div class="h">Cerere (L)</div><div class="h">Muncitori</div><div class="h">Producție Qs (L)</div>${rows}</div>
+      <p class="small muted">Numărul de muncitori este cel din trimestrul respectiv, după angajări sau concedieri.</p></div>
+    <div class="q"><div class="qh"><div class="qt">Costurile planului vostru, pe tot anul</div><span class="pts">−15.000 lei / greșeală</span></div>
+      <div class="stack" style="gap:8px">
+        ${[["c1","c1 · stoc"],["c2","c2 · supramuncă"],["c3","c3 · inactivitate"],["c4","c4 · deficit"],["c5","c5 · angajare/concediere"],["total","Cost total"]].map(([k,l])=>`<div class="unit"><label for="k_${k}" style="flex:0 0 46%;font-weight:700;font-size:.9rem">${l}</label><input class="num" type="text" inputmode="numeric" id="k_${k}" data-k="k_${k}" value="${val("k_"+k)}" placeholder="lei" autocomplete="off"></div>`).join("")}
+      </div>
+      <p class="small muted">Scrieți 0 pentru costurile care nu apar în planul vostru.</p></div>
   </fieldset>
   ${submitBlock(1)}
   </div>`;
 }
 
-function seqHTML(rule){
-  const cur=S.a["seq_"+rule]||"";
-  const slots=[0,1,2,3,4].map(i=>`<div class="slot ${cur[i]?'f':''}">${cur[i]||""}</div>`).join("");
-  const chips=BANDS.map(b=>`<button type="button" class="chip" data-seq="${rule}" data-id="${b.id}" ${cur.includes(b.id)||S.sent.r2?"disabled":""}>${b.id}</button>`).join("");
-  return `<div class="q"><div class="qh"><div class="qt">Ordinea după ${rule}</div><span class="pts">${R2.seqPts}p</span></div>
-    <div class="seq"><div class="slots">${slots}</div><div class="chips">${chips}<button type="button" class="chip reset" data-reset="${rule}" ${S.sent.r2?"disabled":""}>Șterge</button></div></div></div>`;
-}
 function round2(){
-  const a=S.a, dis=S.sent.r2?"disabled":"";
-  const rows=BANDS.map(b=>`<tr><td><b>${b.id}</b></td><td>${esc(b.name)}</td><td class="n">${b.t}</td><td class="n">${b.d}</td></tr>`).join("");
-  const grid=RULES.map(r=>`<div class="r">${r}</div>
-    <input class="num" type="text" inputmode="decimal" id="flow_${r}" data-k="flow_${r}" value="${esc(a["flow_"+r]||"")}" placeholder="ore" aria-label="Timp mediu de finalizare ${r}" autocomplete="off">
-    <input class="num" type="text" inputmode="decimal" id="late_${r}" data-k="late_${r}" value="${esc(a["late_"+r]||"")}" placeholder="ore" aria-label="Întârziere medie ${r}" autocomplete="off">`).join("");
+  const a=S.a,dis=S.sent.r2?"disabled":"";
+  const rows=JOBS.map(j=>`<tr><td><b>${j.id}</b></td><td>${esc(j.name)}</td><td class="n">${j.t}</td><td class="n">${j.d}</td></tr>`).join("");
+  const cur=a.seq||"";
+  const slots=JOBS.map((_,i)=>`<div class="slot ${cur[i]?'f':''}">${cur[i]||""}</div>`).join("");
+  const chips=JOBS.map(j=>`<button type="button" class="chip" data-seq="${j.id}" ${cur.includes(j.id)||S.sent.r2?"disabled":""}>${j.id}</button>`).join("");
   return `<div class="stack">
   <div class="stage s2 stack">
-    <span class="tag">RUNDA 2 · ~13 MIN</span>
-    <h2>Scena principală</h2>
-    <p>În ziua dinaintea festivalului, o singură echipă tehnică pregătește scena principală (montaj personalizat + soundcheck) pentru 5 trupe, pe rând. Toate trupele sunt disponibile de la ora 0.</p>
-    <p>Cererile au sosit în ordinea <b>A, B, C, D, E</b>. Termenul este ora până la care setup-ul trupei trebuie să fie gata.</p>
-    <div class="tablewrap card" style="padding:6px 8px"><table><thead><tr><th>Cod</th><th>Trupa</th><th class="n">Durată (ore)</th><th class="n">Termen (ora)</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <span class="tag">RUNDA 2 · ~12 MIN</span>
+    <h2>Atelierul de scenotehnică</h2>
+    <p>Atelierul festivalului trebuie să construiască 7 standuri pentru sponsori. Lucrează la un singur stand odată și este disponibil de azi. Comenzile au sosit în ordinea A, B, C, D, E, F, G.</p>
+    <div class="tablewrap card" style="padding:6px 8px"><table><thead><tr><th>Produs</th><th>Stand</th><th class="n">Timp de procesare (zile)</th><th class="n">Data de predare (zile)</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <div class="card cg">
+      <span class="sym">1.000</span><span>lei pentru fiecare zi de staționare a unui stand în atelier</span>
+      <span class="sym">3.000</span><span>lei penalitate de la sponsor pentru fiecare zi de întârziere</span>
+    </div>
+    <div class="formula">Cost regulă = 1.000 × Σ timp de staționare + 3.000 × Σ timp de întârziere</div>
     <div class="card small stack" style="gap:6px">
-      <p><b>Timp de finalizare</b> = ora la care se termină pregătirea trupei.</p>
-      <p><b>Întârziere</b> = finalizare − termen, dacă rezultatul e pozitiv; altfel 0.</p>
-      <p><b>Media</b> = suma pentru cele 5 trupe ÷ 5. Scrieți cu o zecimală (ex. 12,6).</p>
-      <p class="muted">FCFS: primul venit, primul servit · SPT: cea mai scurtă durată · EDD: cel mai apropiat termen · LPT: cea mai lungă durată.</p>
+      <p><b>Rezerva de timp</b> = Dp − Tp. <b>Timp de staționare</b> = Tp + timpii produselor dinainte. <b>Timp de întârziere</b> = Ts − Dp; dacă iese negativ, se consideră 0.</p>
+      <p><b>Timp mediu petrecut în atelier</b> = Σ timp de staționare ÷ 7. <b>Timp mediu de întârziere</b> = Σ timp de întârziere ÷ 7. Scrieți mediile cu două zecimale.</p>
+      <p class="muted">„Oricare produs”: ordinea trasă la sorți este ${RANDOM_ORDER.split("").join(", ")}.</p>
     </div>
   </div>
   <fieldset class="stack" ${dis}>
-    <div class="q"><div class="qh"><div class="qt">Ordinea după FCFS</div><span class="pts">dată</span></div><div class="slots">${"ABCDE".split("").map(c=>`<div class="slot f">${c}</div>`).join("")}</div></div>
-    ${seqHTML("SPT")}${seqHTML("EDD")}${seqHTML("LPT")}
-    <div class="q"><div class="qh"><div class="qt">Indicatorii pentru fiecare regulă</div><span class="pts">15p / căsuță</span></div>
-      <div class="mgrid"><div></div><div class="h">Timp mediu de finalizare</div><div class="h">Întârziere medie</div>${grid}</div></div>
-    ${R2.mc.map(q=>mcHTML(q,a,2)).join("")}
+    <div class="q"><div class="qh"><div class="qt">Ce regulă de prioritate alegeți?</div><span class="pts">costul regulii</span></div>
+      <div class="opts">${RULES.map((r,i)=>`<label class="opt"><input type="radio" name="rule" value="${i}" ${String(a.rule)===String(i)?"checked":""}><span>${r.label}</span></label>`).join("")}</div></div>
+    <div class="q"><div class="qh"><div class="qt">Ordinea de fabricație după regula aleasă</div><span class="pts">−10.000 dacă e greșită</span></div>
+      <div class="seq"><div class="slots" style="grid-template-columns:repeat(7,1fr)">${slots}</div><div class="chips">${chips}<button type="button" class="chip reset" data-reset="1" ${S.sent.r2?"disabled":""}>Șterge</button></div></div></div>
+    <div class="q"><div class="qh"><div class="qt">Indicatorii regulii alese</div><span class="pts">−10.000 / greșeală</span></div>
+      <div class="stack" style="gap:8px">
+        ${[["st","Σ timp de staționare","zile","numeric"],["lt","Σ timp de întârziere","zile","numeric"],["avgst","Timp mediu petrecut în atelier","zile","decimal"],["avglt","Timp mediu de întârziere","zile","decimal"],["cost","Cost total al regulii","lei","numeric"]].map(([k,l,u,m])=>`<div class="unit"><label for="${k}" style="flex:0 0 46%;font-weight:700;font-size:.9rem">${l}</label><input class="num" type="text" inputmode="${m}" id="${k}" data-k="${k}" value="${val(k)}" placeholder="${u}" autocomplete="off"></div>`).join("")}
+      </div></div>
   </fieldset>
   ${submitBlock(2)}
   </div>`;
 }
+
 function round3(){
   const dis=S.sent.r3?"disabled":"";
   return `<div class="stack">
   <div class="stage s3 stack">
-    <span class="tag">RUNDA 3 · ~6 MIN</span>
-    <h2>Criză în timpul festivalului</h2>
-    <p>Festivalul a început. Apar situații neprevăzute și trebuie să decideți repede. Folosiți ce ați învățat în rundele 1 și 2.</p>
+    <span class="tag">RUNDA 3 · ~5 MIN</span>
+    <h2>Criză în weekendul festivalului</h2>
+    <p>Festivalul a început, iar serviciile nu pot fi stocate. Pentru fiecare situație, calculați costul variantelor și alegeți-o pe cea mai ieftină. Costul variantei alese intră în costul echipei.</p>
   </div>
-  <fieldset class="stack" ${dis}>${R3.mc.map(q=>mcHTML(q,S.a,3)).join("")}</fieldset>
+  <fieldset class="stack" ${dis}>${R3.map(q=>`<div class="q"><div class="qt">${esc(q.text)}</div><div class="opts">${q.opts.map((o,i)=>`<label class="opt"><input type="radio" name="${q.id}" value="${i}" ${String(S.a[q.id])===String(i)?"checked":""}><span>${esc(o[0])}</span></label>`).join("")}</div></div>`).join("")}</fieldset>
   ${submitBlock(3)}
   </div>`;
 }
 
 function renderGame(){
   if(S.done){renderResults();return;}
-  const sentMark=r=>S.sent["r"+r]?"✓ trimisă":"";
+  const sm=(r,l)=>S.sent["r"+r]?"✓ trimisă":l;
   app.innerHTML=`<div class="wrap">
     <div class="topbar"><div class="team">#${S.team} · ${esc(S.name)}</div><div class="timer" id="timer">${mmss(remaining())}</div></div>
     <div class="tabs" role="tablist">
-      <button class="tab t1" role="tab" aria-selected="${tab===1}" data-tab="1">Runda 1<small>${sentMark(1)||"Staffing"}</small></button>
-      <button class="tab t2" role="tab" aria-selected="${tab===2}" data-tab="2">Runda 2<small>${sentMark(2)||"Scena"}</small></button>
-      <button class="tab t3" role="tab" aria-selected="${tab===3}" data-tab="3">Runda 3<small>${sentMark(3)||"Criză"}</small></button>
+      <button class="tab t1" role="tab" aria-selected="${tab===1}" data-tab="1">Runda 1<small>${sm(1,"Berăria")}</small></button>
+      <button class="tab t2" role="tab" aria-selected="${tab===2}" data-tab="2">Runda 2<small>${sm(2,"Atelierul")}</small></button>
+      <button class="tab t3" role="tab" aria-selected="${tab===3}" data-tab="3">Runda 3<small>${sm(3,"Criză")}</small></button>
     </div>
     <div id="round">${tab===1?round1():tab===2?round2():round3()}</div>
   </div>`;
   app.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{tab=Number(b.dataset.tab);confirmRound=null;renderGame();window.scrollTo(0,0);});
   app.querySelectorAll("input[data-k]").forEach(inp=>inp.oninput=()=>{S.a[inp.dataset.k]=inp.value;persist();});
   app.querySelectorAll("input[type=radio]").forEach(inp=>inp.onchange=()=>{S.a[inp.name]=Number(inp.value);persist();});
-  app.querySelectorAll("[data-seq]").forEach(b=>b.onclick=()=>{const k="seq_"+b.dataset.seq;const cur=S.a[k]||"";if(cur.length<5&&!cur.includes(b.dataset.id)){S.a[k]=cur+b.dataset.id;persist();rerenderKeepScroll();}});
-  app.querySelectorAll("[data-reset]").forEach(b=>b.onclick=()=>{S.a["seq_"+b.dataset.reset]="";persist();rerenderKeepScroll();});
+  app.querySelectorAll("[data-seq]").forEach(b=>b.onclick=()=>{const cur=S.a.seq||"";if(cur.length<JOBS.length&&!cur.includes(b.dataset.seq)){S.a.seq=cur+b.dataset.seq;persist();keepScroll();}});
+  app.querySelectorAll("[data-reset]").forEach(b=>b.onclick=()=>{S.a.seq="";persist();keepScroll();});
   const send=$("#send");
   if(send)send.onclick=()=>{
-    if(confirmRound!==tab){confirmRound=tab;rerenderKeepScroll();return;}
+    const miss=missing(tab);
+    if(miss){const e=$("#sendErr");e.textContent=miss;e.hidden=false;confirmRound=null;send.className="btn sun block";send.textContent="Trimite Runda "+tab;return;}
+    if(confirmRound!==tab){confirmRound=tab;keepScroll();return;}
     lockRound(tab);confirmRound=null;
     if(S.sent.r1&&S.sent.r2&&S.sent.r3){finish(true);return;}
-    const next=[1,2,3].find(r=>!S.sent["r"+r]);tab=next;renderGame();window.scrollTo(0,0);
+    tab=[1,2,3].find(r=>!S.sent["r"+r]);renderGame();window.scrollTo(0,0);
   };
   startTick();
 }
-function rerenderKeepScroll(){const y=window.scrollY;renderGame();window.scrollTo(0,y);}
+function missing(r){
+  const a=S.a;
+  if(r===1){for(let t=1;t<=4;t++){if(String(a["w"+t]||"").trim()===""||String(a["q"+t]||"").trim()==="")return "Completați numărul de muncitori și producția pentru toate cele 4 trimestre.";}}
+  if(r===2&&a.rule===undefined)return "Alegeți o regulă de prioritate.";
+  if(r===3&&R3.some(q=>a[q.id]===undefined))return "Alegeți o variantă pentru fiecare situație.";
+  return "";
+}
+function keepScroll(){const y=window.scrollY;renderGame();window.scrollTo(0,y);}
 function lockRound(r){
   if(S.sent["r"+r])return;
   S.sent["r"+r]=true;
-  S.scores["r"+r]= r===1?scoreR1(S.a): r===2?scoreR2(S.a): scoreR3(S.a);
+  S.res["r"+r]= r===1?scoreR1(S.a): r===2?scoreR2(S.a): scoreR3(S.a);
   persist();
 }
 function finish(early){
   [1,2,3].forEach(lockRound);
-  S.bonus= early? Math.max(0,Math.min(MAX.bonus,Math.floor(remaining()/60))) : 0;
-  S.done=true;S.end=Date.now();persist();
-  stopTick();renderResults();
+  S.bmin= early? Math.max(0,Math.min(BONUS_MAX_MIN,Math.floor(remaining()/60))) : 0;
+  S.done=true;persist();stopTick();renderResults();
 }
 function startTick(){
   stopTick();
-  tick=setInterval(()=>{
-    const rem=remaining();const t=$("#timer");
+  tick=setInterval(()=>{const rem=remaining(),t=$("#timer");
     if(t){t.textContent=mmss(rem);t.classList.toggle("low",rem<=300);t.classList.toggle("pulse",rem<=60);}
-    if(rem<=0){finish(false);}
-  },500);
+    if(rem<=0)finish(false);},500);
 }
 function stopTick(){if(tick){clearInterval(tick);tick=null;}}
 
-/* ---------- Rezultate echipă ---------- */
+/* ---------- Rezultate ---------- */
 function renderResults(){
-  const r1=S.scores.r1||0,r2=S.scores.r2||0,r3=S.scores.r3||0,b=S.bonus||0;
-  const total=r1+r2+r3+b;
-  const code=encodeCode(S.team,r1,r2,r3,b);
+  const R=S.res,r1=R.r1.cost,r2=R.r2.cost,r3=R.r3.cost,b=S.bmin*BONUS_PER_MIN;
+  const total=r1+r2+r3-b;
+  const code=encodeCode(S.team,r1,r2,r3,S.bmin);
+  const errs=R.r1.errs+R.r2.errs;
   app.innerHTML=`<div class="wrap stack">
     <section class="hero">
       <div class="eyebrow">ECHIPA #${S.team} · ${esc(S.name).toUpperCase()}</div>
       <h1 style="font-size:1.6rem">Ați terminat!</h1>
-      <p>${S.bonus>0?`Ați trimis cu timp rămas și ați câștigat ${b} puncte bonus.`:"Timpul s-a încheiat și răspunsurile au fost trimise automat."}</p>
-      <div class="band" aria-hidden="true"><span>SOUNDWAVE FEST · OPS CHALLENGE · SOUNDWAVE FEST · OPS CHALLENGE · SOUNDWAVE FEST · OPS CHALLENGE · </span></div>
+      <p>${S.bmin>0?`Ați trimis cu ${S.bmin} minute rămase: −${lei(b)} lei bonus de viteză.`:"Timpul s-a încheiat și răspunsurile au fost trimise automat."}</p>
+      <div class="band" aria-hidden="true"><span>COST MINIM CÂȘTIGĂ · SOUNDWAVE FEST · COST MINIM CÂȘTIGĂ · SOUNDWAVE FEST · COST MINIM CÂȘTIGĂ · SOUNDWAVE FEST · </span></div>
     </section>
     <div class="card stack" style="text-align:center;align-items:center">
-      <div class="label">Scor total</div>
-      <div class="score">${total}</div>
-      <div class="muted small">din ${MAX.r1+MAX.r2+MAX.r3+MAX.bonus} posibile</div>
+      <div class="label">Costul total al echipei</div>
+      <div class="score" style="font-size:clamp(2.4rem,12vw,4.2rem);color:var(--violet)">${lei(total)} <span style="font-size:.4em">lei</span></div>
+      <div class="muted small">Cu cât mai mic, cu atât mai bine.</div>
     </div>
     <div class="chipsrow">
-      <div class="mini" style="background:var(--pink-soft)"><span>Runda 1</span><b>${r1}</b></div>
-      <div class="mini" style="background:var(--cyan-soft)"><span>Runda 2</span><b>${r2}</b></div>
-      <div class="mini" style="background:var(--orange-soft)"><span>Runda 3</span><b>${r3}</b></div>
-      <div class="mini" style="background:var(--sun-soft)"><span>Bonus</span><b>${b}</b></div>
+      <div class="mini" style="background:var(--pink-soft)"><span>Berăria</span><b style="font-size:.95rem">${lei(r1)}</b></div>
+      <div class="mini" style="background:var(--cyan-soft)"><span>Atelierul</span><b style="font-size:.95rem">${lei(r2)}</b></div>
+      <div class="mini" style="background:var(--orange-soft)"><span>Criză</span><b style="font-size:.95rem">${lei(r3)}</b></div>
+      <div class="mini" style="background:var(--sun-soft)"><span>Bonus</span><b style="font-size:.95rem">−${lei(b)}</b></div>
     </div>
+    ${errs?`<p class="pen" style="text-align:center">Costurile includ penalizări pentru ${errs} ${errs===1?"calcul greșit":"calcule greșite"}.</p>`:`<p class="ok small" style="text-align:center">Toate calculele raportate au fost corecte.</p>`}
     <div class="card stack">
       <div class="label">Codul echipei, pentru profesor</div>
       <div class="code">${code}</div>
-      <p class="small muted">Arătați acest cod profesorului. Codul conține numărul echipei și scorurile, deci nu poate fi modificat.</p>
+      <p class="small muted">Arătați acest cod profesorului. El conține numărul echipei și costurile, deci nu poate fi modificat.</p>
     </div>
-    <div class="card stack small">
-      <div class="label">Membri</div>
-      <p>${S.members.map(esc).join(" · ")}</p>
-    </div>
+    <div class="card stack small"><div class="label">Membri</div><p>${S.members.map(esc).join(" · ")}</p></div>
     <p class="small muted" style="text-align:center">Soluțiile le discutăm împreună, după clasament.</p>
   </div>`;
 }
 
 /* ---------- Admin ---------- */
-let A = load(KEY_ADMIN)||{entries:[]};
-let showSol=false, wipeConfirm=false;
+let A=load(KEY_ADMIN)||{entries:[]};
+let showSol=false,wipeConfirm=false;
 function persistA(){save(KEY_ADMIN,A);}
-function ranked(){return [...A.entries].sort((x,y)=>y.total-x.total||y.bonus-x.bonus||x.team-y.team);}
+function ranked(){return [...A.entries].sort((x,y)=>x.total-y.total||y.bonus-x.bonus||x.team-y.team);}
 
 function renderAdmin(){
   stopTick();
@@ -565,36 +628,32 @@ function renderAdmin(){
     app.innerHTML=`<div class="wrap stack" style="max-width:440px">
       <section class="hero"><div class="eyebrow">ZONA PROFESORULUI</div><h1 style="font-size:1.5rem">Clasament SoundWave</h1><div class="band" aria-hidden="true"><span>ADMIN · CLASAMENT · PODIUM · SOLUȚII · ADMIN · CLASAMENT · PODIUM · SOLUȚII · </span></div></section>
       <form class="card stack" id="pinForm"><div class="field"><label for="pin">PIN</label><input type="password" id="pin" inputmode="numeric" autocomplete="off"></div>
-      <div class="err" id="pinErr" hidden>PIN greșit.</div>
-      <button class="btn block" type="submit">Intră</button></form>
+      <div class="err" id="pinErr" hidden>PIN greșit.</div><button class="btn block" type="submit">Intră</button></form>
       <div style="text-align:center"><button class="link" id="back" type="button">Înapoi la joc</button></div></div>`;
-    $("#pinForm").onsubmit=e=>{e.preventDefault();if($("#pin").value===ADMIN_PIN){adminOK=true;renderAdmin();}else{$("#pinErr").hidden=false;}};
-    $("#back").onclick=goGame;
-    return;
+    $("#pinForm").onsubmit=e=>{e.preventDefault();if($("#pin").value===ADMIN_PIN){adminOK=true;renderAdmin();}else $("#pinErr").hidden=false;};
+    $("#back").onclick=goGame;return;
   }
   const list=ranked();
   const rows=list.map((e,i)=>`<div class="brow ${i<3?'g'+(i+1):''}">
       <div class="rk">${i+1}</div>
       <div class="nm"><b>Echipa ${e.team}</b><span class="small muted">${esc(e.name||"")}</span></div>
-      <div class="c">${e.r1}</div><div class="c">${e.r2}</div><div class="c">${e.r3}</div><div class="c">${e.bonus}</div>
-      <div class="tot">${e.total}</div>
+      <div class="c">${lei(e.r1)}</div><div class="c">${lei(e.r2)}</div><div class="c">${lei(e.r3)}</div><div class="c">−${lei(e.bonus)}</div>
+      <div class="tot">${lei(e.total)}</div>
       <button class="x" data-del="${e.team}" aria-label="Șterge echipa ${e.team}">×</button></div>`).join("");
   app.innerHTML=`<div class="wrap wide stack">
     <div class="row" style="justify-content:space-between">
       <h1 style="font-size:clamp(1.3rem,4vw,2rem)"><span style="color:var(--pink)">SoundWave</span> · Clasament</h1>
-      <div class="row">
-        <button class="btn sun" id="podBtn" type="button" ${list.length?"":"disabled"}>Podium</button>
-        <button class="btn ghost" id="solBtn" type="button">${showSol?"Ascunde soluțiile":"Soluții"}</button>
-      </div>
+      <div class="row"><button class="btn sun" id="podBtn" type="button" ${list.length?"":"disabled"}>Podium</button>
+        <button class="btn ghost" id="solBtn" type="button">${showSol?"Ascunde soluțiile":"Soluții"}</button></div>
     </div>
     <form class="card row" id="addForm" style="align-items:flex-end">
-      <div class="field" style="flex:2 1 220px"><label for="codeIn">Codul echipei</label><input type="text" id="codeIn" placeholder="XXX-XXX-XXX" autocomplete="off" autocapitalize="characters" style="font-family:var(--f-mono);letter-spacing:.06em"></div>
+      <div class="field" style="flex:2 1 240px"><label for="codeIn">Codul echipei</label><input type="text" id="codeIn" placeholder="XXXX-XXXX-XXXX" autocomplete="off" autocapitalize="characters" style="font-family:var(--f-mono);letter-spacing:.06em"></div>
       <div class="field" style="flex:1 1 160px"><label for="nameIn">Nume echipă (opțional)</label><input type="text" id="nameIn" maxlength="28" autocomplete="off"></div>
       <button class="btn pink" type="submit">Adaugă</button>
       <div id="addMsg" class="small" style="flex-basis:100%" hidden></div>
     </form>
-    ${list.length?`<div class="board"><div class="brow head"><div>Loc</div><div>Echipa</div><div class="c">R1</div><div class="c">R2</div><div class="c">R3</div><div class="c">Bonus</div><div style="text-align:right">Total</div><div></div></div>${rows}</div>`
-      :`<div class="empty">Clasamentul apare aici. Introduceți codurile afișate pe telefoanele echipelor la final (${MAX.r1+MAX.r2+MAX.r3+MAX.bonus} puncte maxim).</div>`}
+    ${list.length?`<div class="board"><div class="brow head"><div>Loc</div><div>Echipa</div><div class="c">Berăria</div><div class="c">Atelierul</div><div class="c">Criză</div><div class="c">Bonus</div><div style="text-align:right">Cost total</div><div></div></div>${rows}</div>`
+      :`<div class="empty">Clasamentul apare aici, de la cel mai mic cost la cel mai mare. Introduceți codurile afișate pe telefoanele echipelor la final.</div>`}
     ${showSol?solutionsHTML():""}
     <div class="row" style="justify-content:space-between">
       <button class="link" id="back" type="button">Înapoi la joc</button>
@@ -603,57 +662,56 @@ function renderAdmin(){
   </div>`;
   $("#addForm").onsubmit=e=>{
     e.preventDefault();
-    const d=decodeCode($("#codeIn").value), msg=$("#addMsg");
-    if(!d){msg.innerHTML=`<span class="err">Cod invalid. Verificați caracterele (9 litere și cifre).</span>`;msg.hidden=false;return;}
-    const name=$("#nameIn").value.trim();
-    const existing=A.entries.find(x=>x.team===d.team);
-    A.entries=A.entries.filter(x=>x.team!==d.team);
-    A.entries.push({...d,name:name||(existing&&existing.name)||""});
+    const d=decodeCode($("#codeIn").value);
+    if(!d){const m=$("#addMsg");m.innerHTML=`<span class="err">Cod invalid. Verificați cele 12 caractere.</span>`;m.hidden=false;return;}
+    const name=$("#nameIn").value.trim(),ex=A.entries.find(x=>x.team===d.team);
+    A.entries=A.entries.filter(x=>x.team!==d.team);A.entries.push({...d,name:name||(ex&&ex.name)||""});
     persistA();wipeConfirm=false;renderAdmin();
-    const m=$("#addMsg");m.innerHTML=`<span class="ok">Echipa ${d.team} adăugată: ${d.total} puncte${existing?" (înlocuită)":""}.</span>`;m.hidden=false;
-    $("#codeIn").focus();
+    const m=$("#addMsg");m.innerHTML=`<span class="ok">Echipa ${d.team} adăugată: ${lei(d.total)} lei${ex?" (înlocuită)":""}.</span>`;m.hidden=false;$("#codeIn").focus();
   };
   app.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{A.entries=A.entries.filter(x=>x.team!==Number(b.dataset.del));persistA();renderAdmin();});
   $("#solBtn").onclick=()=>{showSol=!showSol;renderAdmin();};
-  $("#podBtn").onclick=showPodium;
-  $("#back").onclick=goGame;
+  $("#podBtn").onclick=showPodium;$("#back").onclick=goGame;
   $("#wipe").onclick=()=>{if(!wipeConfirm){wipeConfirm=true;renderAdmin();return;}A={entries:[]};persistA();wipeConfirm=false;renderAdmin();};
+  const cb=$("#calcBtn");if(cb)cb.onclick=runCalc;
 }
 
+function aggTable(plan){
+  const r=aggCost(plan.map(([W,Q])=>({W,Q})));
+  return `<div class="tablewrap"><table><thead><tr><th>Trim.</th><th class="n">Qd</th><th class="n">Muncitori</th><th class="n">Capacitate</th><th class="n">Qs</th><th class="n">Stoc</th><th class="n">Deficit</th><th class="n">c1</th><th class="n">c2</th><th class="n">c3</th><th class="n">c4</th><th class="n">c5</th><th class="n">Total</th></tr></thead><tbody>
+   ${r.rows.map(x=>`<tr><td>T${x.t}</td><td class="n">${lei(x.D)}</td><td class="n">${x.W}${x.hired?` (${x.hired>0?"+":""}${x.hired})`:""}</td><td class="n">${lei(x.cap)}</td><td class="n">${lei(x.Q)}</td><td class="n">${lei(x.S)}</td><td class="n">${lei(x.Df)}</td><td class="n">${lei(x.c1)}</td><td class="n">${lei(x.c2)}</td><td class="n">${lei(x.c3)}</td><td class="n">${lei(x.c4)}</td><td class="n">${lei(x.c5)}</td><td class="n">${lei(x.sum)}</td></tr>`).join("")}
+   <tr><td colspan="7"><b>Total</b></td><td class="n"><b>${lei(r.tot.c1)}</b></td><td class="n"><b>${lei(r.tot.c2)}</b></td><td class="n"><b>${lei(r.tot.c3)}</b></td><td class="n"><b>${lei(r.tot.c4)}</b></td><td class="n"><b>${lei(r.tot.c5)}</b></td><td class="n"><b class="ok">${lei(r.tot.total)}</b></td></tr>
+  </tbody></table></div>`;
+}
+function runCalc(){
+  const plan=[1,2,3,4].map(t=>{let W=parseInt($("#cw"+t).value,10);let Q=parseLei($("#cq"+t).value);return [isNaN(W)?0:W,isNaN(Q)?0:Q];});
+  $("#calcOut").innerHTML=aggTable(plan);
+}
 function solutionsHTML(){
-  function sched(order){let t=0;return order.split("").map(id=>{const b=BANDS.find(x=>x.id===id);t+=b.t;return {id,t:b.t,c:t,d:b.d,l:Math.max(0,t-b.d)};});}
-  const tables=["FCFS","SPT","EDD","LPT"].map(r=>{
-    const ord=r==="FCFS"?"ABCDE":KEY.seq[r];const s=sched(ord);
-    const sc=s.reduce((x,y)=>x+y.c,0), sl=s.reduce((x,y)=>x+y.l,0);
-    return `<div class="card" style="min-width:0"><h3>${r} · ${ord.split("").join(" → ")}</h3><div class="tablewrap"><table>
-      <thead><tr><th>Trupa</th><th class="n">Durată</th><th class="n">Finalizare</th><th class="n">Termen</th><th class="n">Întârziere</th></tr></thead>
-      <tbody>${s.map(x=>`<tr><td>${x.id}</td><td class="n">${x.t}</td><td class="n">${x.c}</td><td class="n">${x.d}</td><td class="n">${x.l}</td></tr>`).join("")}
-      <tr><td><b>Total</b></td><td></td><td class="n"><b>${sc}</b></td><td></td><td class="n"><b>${sl}</b></td></tr></tbody></table></div>
-      <p class="small" style="margin-top:6px">Timp mediu <b>${(sc/5).toFixed(1).replace(".",",")}</b> ore · Întârziere medie <b>${(sl/5).toFixed(1).replace(".",",")}</b> ore · Nr. mediu de trupe în sistem ${(sc/21).toFixed(2).replace(".",",")}</p></div>`;
-  }).join("");
+  const pure=PURE.map(p=>`<div class="card stack" style="gap:6px;min-width:0"><h3>${p.name}</h3><p class="small muted">${p.desc}</p>${aggTable(p.plan)}</div>`).join("");
+  const rules=RULES.map(r=>{const ord=ruleOrder(r.id),ev=evalOrder(ord);
+    return `<div class="card" style="min-width:0"><h3>${r.label}</h3><p class="small muted" style="margin-top:4px">Ordinea: ${ord.split("").join(" → ")}</p><div class="tablewrap"><table>
+     <thead><tr><th>Produs</th><th class="n">Tp</th><th class="n">Dp</th><th class="n">Rezervă</th><th class="n">Ts</th><th class="n">Întârziere</th></tr></thead>
+     <tbody>${ev.rows.map(x=>`<tr><td>${x.id}</td><td class="n">${x.t}</td><td class="n">${x.d}</td><td class="n">${x.r}</td><td class="n">${x.ts}</td><td class="n">${x.l}</td></tr>`).join("")}
+     <tr><td colspan="4"><b>Total</b></td><td class="n"><b>${ev.st}</b></td><td class="n"><b>${ev.lt}</b></td></tr></tbody></table></div>
+     <p class="small" style="margin-top:6px">Timp mediu în atelier <b>${dec2(ev.avgst)}</b> zile · Timp mediu de întârziere <b>${dec2(ev.avglt)}</b> zile<br>Cost = 1.000 × ${ev.st} + 3.000 × ${ev.lt} = <b>${lei(ev.cost)} lei</b></p></div>`;}).join("");
   return `<section class="stack sol">
-    <h2 style="color:var(--pink)">Soluții · Runda 1</h2>
-    <div class="card stack small">
-      <div class="tablewrap"><table>
-        <thead><tr><th>Strategie</th><th class="n">Salarii</th><th class="n">Angajări</th><th class="n">Demiteri</th><th class="n">Supramuncă</th><th class="n">Temporari</th><th class="n">Total</th></tr></thead>
-        <tbody>
-          <tr><td>A · Urmărire (30→20→30→50→60→40→40)</td><td class="n">240.000</td><td class="n">40 × 600 = 24.000</td><td class="n">30 × 800 = 24.000</td><td class="n">0</td><td class="n">0</td><td class="n"><b>288.000</b></td></tr>
-          <tr><td>B · Constantă 40</td><td class="n">240.000</td><td class="n">10 × 600 = 6.000</td><td class="n">0</td><td class="n">(8+8) × 1.500 = 24.000</td><td class="n">(2+12) × 1.800 = 25.200</td><td class="n"><b>295.200</b></td></tr>
-          <tr><td>C · Mixtă (30,30,50,50,40,40)</td><td class="n">240.000</td><td class="n">20 × 600 = 12.000</td><td class="n">10 × 800 = 8.000</td><td class="n">10 × 1.500 = 15.000</td><td class="n">0</td><td class="n"><b class="ok">275.000</b></td></tr>
-        </tbody></table></div>
-      <p>B: supramunca maximă este 20% × 40 = 8. S3 are deficit 10 (8 supramuncă + 2 temporari), S4 are deficit 20 (8 + 12). Inactivitate: S1 20 + S2 10 = <b>30</b> lucrători-săptămână.</p>
-      <p>C: în S4 deficitul este 10, iar limita de supramuncă este 20% × 50 = 10, deci nu e nevoie de temporari.</p>
-      <p>Grilă: m1 servicii nestocabile · m2 supramunca · m3 activități auxiliare, apoi demitere · m4 ponderea salariilor &lt; costuri fixe · m5 strategia C.</p>
-    </div>
-    <h2 style="color:var(--cyan)">Soluții · Runda 2</h2>
-    <div class="grid2" style="grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr))">${tables}</div>
-    <div class="card small"><p>SPT minimizează timpul mediu de finalizare (10,2). EDD minimizează întârzierea medie (1,0). LPT e cea mai slabă pe ambele criterii.</p></div>
-    <h2 style="color:var(--orange)">Soluții · Runda 3</h2>
+    <h2 style="color:var(--pink)">Soluții · Runda 1 · Berăria</h2>
+    <p class="small">Fiecare echipă are planul ei, deci costurile raportate au fost verificate față de propriul plan. Mai jos sunt strategiile pure din curs și planul cu cel mai mic cost.</p>
+    <div class="stack">${pure}</div>
+    <div class="card stack"><h3>Verifică planul unei echipe</h3>
+      <div class="calc"><div class="h label">Muncitori</div><div></div><div></div><div></div>
+        ${[1,2,3,4].map(t=>`<input class="num" type="text" inputmode="numeric" id="cw${t}" placeholder="T${t}">`).join("")}
+        <div class="h label" style="grid-column:1/-1">Producție (L)</div>
+        ${[1,2,3,4].map(t=>`<input class="num" type="text" inputmode="numeric" id="cq${t}" placeholder="T${t}">`).join("")}</div>
+      <button class="btn cyan" id="calcBtn" type="button">Calculează</button><div id="calcOut"></div></div>
+    <h2 style="color:var(--cyan)">Soluții · Runda 2 · Atelierul</h2>
+    <div class="grid2" style="grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr))">${rules}</div>
+    <div class="card small"><p>Cea mai mică durată a procesării dă cel mai mic timp de staționare, dar cea mai mică rezervă de timp reduce mult întârzierile. La 3.000 lei pe zi de întârziere, rezerva minimă câștigă: 120.000 lei, față de 129.000 lei.</p></div>
+    <h2 style="color:var(--orange)">Soluții · Runda 3 · Criză</h2>
     <div class="card small stack" style="gap:6px">
-      <p>c1 Păstrezi personalul pe activități auxiliare: scădere scurtă, iar angajarea/demiterea costă.</p>
-      <p>c2 Supramuncă: creștere scurtă, prima pârghie.</p>
-      <p>c3 EDD: penalizarea vine din întârzieri.</p>
-      <p>c4 SPT: minimizează timpul mediu de finalizare.</p>
+      ${R3.map(q=>{const best=q.opts.reduce((m,o)=>o[1]<m[1]?o:m);return `<p><b>${esc(q.text)}</b><br>${q.opts.map(o=>`${lei(o[1])} lei${o===best?" ✓":""}`).join(" · ")}</p>`;}).join("")}
+      <p>Cost minim posibil în Runda 3: <b>${lei(R3_MIN)} lei</b>.</p>
     </div>
   </section>`;
 }
@@ -661,21 +719,14 @@ function solutionsHTML(){
 function showPodium(){
   const list=ranked().slice(0,3);
   const ov=document.createElement("div");ov.className="podium";
-  const pod=(i,cls)=>{const e=list[i];return `<div class="pod ${cls}" data-i="${i}"><div class="who">${e?`Echipa ${e.team}${e.name?`<span style="font-size:.7em;color:#D9D6FF">${esc(e.name)}</span>`:""}<small>${e.total} p</small>`:"—"}</div><div class="blk">${i+1}</div></div>`;};
-  ov.innerHTML=`<div class="label" style="color:var(--sun)">SOUNDWAVE FEST · OPS CHALLENGE</div>
+  const pod=(i,cls)=>{const e=list[i];return `<div class="pod ${cls}" data-i="${i}"><div class="who">${e?`Echipa ${e.team}${e.name?`<span style="font-size:.7em;color:#D9D6FF">${esc(e.name)}</span>`:""}<small>${lei(e.total)} lei</small>`:"—"}</div><div class="blk">${i+1}</div></div>`;};
+  ov.innerHTML=`<div class="label" style="color:var(--sun)">SOUNDWAVE FEST · COST MINIM CÂȘTIGĂ</div>
     <div class="pods">${pod(1,"p2")}${pod(0,"p1")}${pod(2,"p3")}</div>
-    <div class="row" style="justify-content:center"><button class="btn sun" id="rev" type="button">Dezvăluie locul 3</button><button class="btn ghost" id="cls" type="button" style="color:#fff">Închide</button></div>`;
+    <div class="row" style="justify-content:center"><button class="btn sun" id="rev" type="button">Dezvăluie locul ${Math.min(3,list.length)}</button><button class="btn ghost" id="cls" type="button" style="color:#fff">Închide</button></div>`;
   document.body.appendChild(ov);
-  let step=2;
-  const rev=$("#rev",ov);
-  rev.onclick=()=>{
-    while(step>=0&&!list[step])step--;
-    if(step<0){return;}
-    ov.querySelector(`.pod[data-i="${step}"]`).classList.add("on");
-    if(step===0){confetti();rev.hidden=true;}
-    step--;
-    if(step>=0)rev.textContent=`Dezvăluie locul ${step+1}`;
-  };
+  let step=Math.min(3,list.length)-1;const rev=$("#rev",ov);
+  rev.onclick=()=>{if(step<0)return;ov.querySelector(`.pod[data-i="${step}"]`).classList.add("on");
+    if(step===0){confetti();rev.hidden=true;}step--;if(step>=0)rev.textContent=`Dezvăluie locul ${step+1}`;};
   $("#cls",ov).onclick=()=>{ov.remove();stopConfetti();};
 }
 
@@ -683,27 +734,23 @@ function showPodium(){
 let confRAF=null;
 function confetti(){
   if(window.matchMedia("(prefers-reduced-motion: reduce)").matches)return;
-  const c=$("#confetti");c.hidden=false;const ctx=c.getContext("2d");
-  const W=c.width=innerWidth,H=c.height=innerHeight;
+  const c=$("#confetti");c.hidden=false;const ctx=c.getContext("2d");const W=c.width=innerWidth,H=c.height=innerHeight;
   const cols=["#FF2E7E","#00B4D8","#FFC83D","#FF8A1F","#6B4BFF","#5BCF4A"];
   const P=Array.from({length:180},()=>({x:Math.random()*W,y:-20-Math.random()*H*.6,vx:(Math.random()-.5)*3,vy:2+Math.random()*4,r:Math.random()*6.28,vr:(Math.random()-.5)*.3,s:6+Math.random()*8,c:cols[Math.floor(Math.random()*cols.length)]}));
-  let t=0;
-  (function f(){ctx.clearRect(0,0,W,H);P.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.r+=p.vr;ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.r);ctx.fillStyle=p.c;ctx.fillRect(-p.s/2,-p.s/4,p.s,p.s/2);ctx.restore();});
+  let t=0;(function f(){ctx.clearRect(0,0,W,H);P.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.r+=p.vr;ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.r);ctx.fillStyle=p.c;ctx.fillRect(-p.s/2,-p.s/4,p.s,p.s/2);ctx.restore();});
     t++;if(t<360)confRAF=requestAnimationFrame(f);else stopConfetti();})();
 }
 function stopConfetti(){if(confRAF)cancelAnimationFrame(confRAF);confRAF=null;const c=$("#confetti");c.getContext("2d").clearRect(0,0,c.width,c.height);c.hidden=true;}
 
 /* ---------- Navigare ---------- */
-function goGame(){
-  try{history.replaceState(null,"",location.pathname+location.search);}catch(e){}
-  route(true);
-}
+function goGame(){try{history.replaceState(null,"",location.pathname+location.search);}catch(e){}route(true);}
 function route(forceGame){
   if(!forceGame&&location.hash==="#admin"){renderAdmin();return;}
-  if(S&&S.team){ if(!S.done&&remaining()<=0){finish(false);return;} renderGame(); }
+  if(S&&S.team){if(!S.done&&remaining()<=0){finish(false);return;}renderGame();}
   else renderStart();
 }
 window.addEventListener("hashchange",()=>route(false));
-route(false);
+if(typeof module!=="undefined")module.exports={aggCost,scoreR1,scoreR2,scoreR3,encodeCode,decodeCode,ruleOrder,evalOrder,PURE};
+else route(false);
 })();
 </script>
