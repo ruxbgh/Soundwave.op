@@ -1,0 +1,709 @@
+<title>SoundWave Ops Challenge</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;900&family=Figtree:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: phone-first single column, festival wristband hero, rounds as colored "stages"; admin widens to a projector board. Single bright light look by choice. */
+:root{
+  color-scheme: light;
+  --bg:#F2F6FF;
+  --card:#FFFFFF;
+  --ink:#1A1442;
+  --muted:#5E5A86;
+  --line:#DCE1F5;
+  --pink:#FF2E7E;
+  --cyan:#00B4D8;
+  --sun:#FFC83D;
+  --orange:#FF8A1F;
+  --violet:#6B4BFF;
+  --lime:#5BCF4A;
+  --pink-soft:#FFE3EE;
+  --cyan-soft:#DDF6FC;
+  --orange-soft:#FFEBD9;
+  --sun-soft:#FFF4D1;
+  --violet-soft:#ECE7FF;
+  --ok:#1E9E4A;
+  --bad:#E0245E;
+  --f-display:"Unbounded", "Arial Black", system-ui, sans-serif;
+  --f-body:"Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+  --r:16px;
+}
+*{box-sizing:border-box}
+html,body{background:var(--bg);color:var(--ink)}
+body{font-family:var(--f-body);font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--ink)}
+.wrap{max-width:680px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 48px}
+.wrap.wide{max-width:1040px}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;line-height:1.1;margin:0}
+h2{font-size:1.25rem;font-weight:700}
+h3{font-size:1rem;font-weight:700}
+p{margin:0}
+.stack{display:flex;flex-direction:column;gap:14px}
+.muted{color:var(--muted)}
+.small{font-size:.875rem}
+.label{font-size:.72rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+button{font:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible,.opt:focus-within{outline:3px solid var(--violet);outline-offset:2px}
+
+/* Hero wristband */
+.hero{position:relative;background:var(--ink);color:#fff;border-radius:24px;padding:26px 20px 22px;overflow:hidden}
+.hero .eyebrow{font-family:var(--f-mono);font-size:.78rem;color:var(--sun);letter-spacing:.06em}
+.hero h1{font-size:clamp(1.9rem,8vw,2.9rem);font-weight:900;margin-top:8px;letter-spacing:-.01em}
+.hero h1 .w{color:var(--sun)}
+.hero h1 .o{display:block;font-size:.5em;font-weight:700;color:var(--cyan);margin-top:6px;letter-spacing:.04em}
+.hero p{color:#D9D6FF;margin-top:12px;max-width:52ch}
+.band{margin:18px -20px -22px;background:var(--pink);transform:rotate(-2deg) translateY(4px);padding:9px 0;white-space:nowrap;overflow:hidden}
+.band span{display:inline-block;font-family:var(--f-display);font-weight:700;font-size:.82rem;letter-spacing:.08em;color:#fff;animation:marq 22s linear infinite}
+@keyframes marq{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+.eq{position:absolute;right:18px;top:22px;display:flex;gap:4px;align-items:flex-end;height:36px}
+.eq i{width:6px;border-radius:3px;background:var(--cyan);animation:eq 1.1s ease-in-out infinite}
+.eq i:nth-child(2){background:var(--sun);animation-delay:.2s}
+.eq i:nth-child(3){background:var(--pink);animation-delay:.4s}
+.eq i:nth-child(4){background:var(--lime);animation-delay:.1s}
+@keyframes eq{0%,100%{height:30%}50%{height:100%}}
+@media (prefers-reduced-motion:reduce){.band span,.eq i,.pulse{animation:none!important}}
+
+.card{background:var(--card);border-radius:var(--r);padding:18px;border:1px solid var(--line)}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-weight:700;font-size:.9rem}
+input[type=text],input[type=number],input[type=password],input.num{width:100%;font:inherit;font-size:1rem;padding:12px 14px;border:2px solid var(--line);border-radius:12px;background:#fff;color:var(--ink);min-width:0}
+input:focus{border-color:var(--violet);outline:none}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+
+.btn{border:0;border-radius:999px;padding:14px 22px;font-weight:800;font-size:1rem;background:var(--ink);color:#fff;transition:transform .08s}
+.btn:active{transform:scale(.97)}
+.btn.pink{background:var(--pink)}
+.btn.cyan{background:var(--cyan);color:var(--ink)}
+.btn.sun{background:var(--sun);color:var(--ink)}
+.btn.ghost{background:transparent;color:var(--ink);border:2px solid var(--line)}
+.btn.block{width:100%}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.warn{background:var(--bad)}
+.link{background:none;border:0;color:var(--muted);text-decoration:underline;padding:6px}
+
+.err{color:var(--bad);font-weight:600;font-size:.9rem}
+
+/* Game top bar */
+.topbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--ink);color:#fff;margin:0 calc(-1 * max(16px,env(safe-area-inset-left,0px))) 16px;padding:10px max(16px,env(safe-area-inset-left,0px));display:flex;justify-content:space-between;align-items:center;gap:10px}
+.topbar .team{font-family:var(--f-display);font-weight:700;font-size:.95rem;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.timer{font-family:var(--f-mono);font-weight:700;font-size:1.35rem;background:#2C2466;padding:4px 12px;border-radius:10px;font-variant-numeric:tabular-nums}
+.timer.low{background:var(--pink)}
+.pulse{animation:pulse 1s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.6}}
+
+.tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+.tab{border:2px solid var(--line);background:#fff;border-radius:14px;padding:10px 6px;text-align:center;font-weight:800;font-size:.85rem;color:var(--ink);line-height:1.2}
+.tab small{display:block;font-weight:600;font-size:.72rem;color:var(--muted);margin-top:2px}
+.tab[aria-selected=true].t1{background:var(--pink);border-color:var(--pink);color:#fff}
+.tab[aria-selected=true].t2{background:var(--cyan);border-color:var(--cyan);color:var(--ink)}
+.tab[aria-selected=true].t3{background:var(--orange);border-color:var(--orange);color:#fff}
+.tab[aria-selected=true] small{color:inherit;opacity:.85}
+
+.stage{border-radius:var(--r);padding:18px;color:var(--ink)}
+.stage.s1{background:var(--pink-soft)}
+.stage.s2{background:var(--cyan-soft)}
+.stage.s3{background:var(--orange-soft)}
+.stage .tag{display:inline-block;font-family:var(--f-mono);font-size:.75rem;font-weight:700;padding:3px 10px;border-radius:999px;background:var(--ink);color:#fff}
+.stage p+p{margin-top:8px}
+
+.tablewrap{overflow-x:auto;margin-top:4px}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;font-size:.92rem}
+th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--line)}
+th{font-size:.72rem;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:800}
+td.n,th.n{text-align:right}
+.costs{display:grid;grid-template-columns:1fr auto;gap:6px 12px;font-size:.92rem}
+.costs b{font-variant-numeric:tabular-nums;white-space:nowrap}
+
+.q{background:#fff;border-radius:14px;padding:14px;border:1px solid var(--line);display:flex;flex-direction:column;gap:10px}
+.q .qh{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.q .qt{font-weight:700}
+.pts{font-family:var(--f-mono);font-size:.75rem;font-weight:700;background:var(--sun-soft);color:var(--ink);padding:2px 8px;border-radius:999px;white-space:nowrap}
+.opts{display:flex;flex-direction:column;gap:8px}
+.opt{display:flex;gap:10px;align-items:flex-start;border:2px solid var(--line);border-radius:12px;padding:10px 12px;cursor:pointer;background:#fff}
+.opt input{margin-top:4px;accent-color:var(--violet);width:18px;height:18px;flex:none}
+.opt:has(input:checked){border-color:var(--violet);background:var(--violet-soft)}
+.unit{display:flex;align-items:center;gap:8px}
+.unit span{font-weight:700;color:var(--muted);white-space:nowrap}
+
+.strat{background:#fff;border-radius:12px;padding:12px;border-left:6px solid var(--pink)}
+.strat b{font-family:var(--f-display);font-size:.85rem}
+
+.seq{display:flex;flex-direction:column;gap:8px}
+.slots{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.slot{height:44px;border-radius:10px;border:2px dashed var(--line);display:grid;place-items:center;font-family:var(--f-display);font-weight:700;background:#fff}
+.slot.f{border-style:solid;border-color:var(--cyan);background:var(--cyan-soft)}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{width:46px;height:42px;border-radius:10px;border:0;background:var(--ink);color:#fff;font-family:var(--f-display);font-weight:700}
+.chip:disabled{opacity:.2}
+.chip.reset{width:auto;padding:0 12px;background:transparent;color:var(--ink);border:2px solid var(--line);font-family:var(--f-body);font-size:.85rem}
+
+.mgrid{display:grid;grid-template-columns:auto 1fr 1fr;gap:8px;align-items:center}
+.mgrid .h{font-size:.7rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.mgrid .r{font-family:var(--f-display);font-weight:700;font-size:.85rem}
+
+.sent{display:flex;align-items:center;gap:10px;background:#fff;border:2px solid var(--ok);border-radius:14px;padding:14px;font-weight:700;color:var(--ok)}
+fieldset{border:0;margin:0;padding:0;min-width:0}
+fieldset:disabled .q{opacity:.75}
+
+/* Results */
+.score{font-family:var(--f-display);font-weight:900;font-size:clamp(3.5rem,18vw,6rem);line-height:1;color:var(--pink)}
+.code{font-family:var(--f-mono);font-weight:700;font-size:clamp(1.6rem,8vw,2.4rem);letter-spacing:.08em;background:var(--ink);color:var(--sun);padding:14px 18px;border-radius:14px;text-align:center;font-variant-numeric:tabular-nums}
+.chipsrow{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.mini{border-radius:12px;padding:10px;text-align:center}
+.mini b{display:block;font-family:var(--f-display);font-size:1.15rem}
+.mini span{font-size:.72rem;font-weight:700}
+
+/* Admin */
+.board{display:flex;flex-direction:column;gap:8px}
+.brow{display:grid;grid-template-columns:52px minmax(0,1fr) repeat(4,64px) 82px 34px;gap:8px;align-items:center;background:#fff;border:1px solid var(--line);border-radius:14px;padding:10px 12px;font-variant-numeric:tabular-nums}
+.brow.head{background:transparent;border:0;padding-block:0}
+.brow.head div{font-size:.7rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.brow .rk{font-family:var(--f-display);font-weight:900;font-size:1.3rem}
+.brow .nm{min-width:0}
+.brow .nm b{font-family:var(--f-display);font-size:.95rem;display:block}
+.brow .tot{font-family:var(--f-display);font-weight:900;font-size:1.25rem;text-align:right;color:var(--pink)}
+.brow .c{text-align:right}
+.brow.g1{border:3px solid var(--sun);background:var(--sun-soft)}
+.brow.g2{border:3px solid var(--cyan)}
+.brow.g3{border:3px solid var(--orange)}
+.x{border:0;background:none;color:var(--muted);font-size:1.1rem}
+@media (max-width:640px){
+  .brow{grid-template-columns:40px minmax(0,1fr) 70px 28px}
+  .brow .c{display:none}
+  .brow .rk{font-size:1.05rem}
+}
+.empty{border:2px dashed var(--line);border-radius:14px;padding:22px;text-align:center;color:var(--muted)}
+
+.podium{position:fixed;inset:0;z-index:20;background:var(--ink);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;padding:calc(24px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) calc(24px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.pods{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:end;width:min(900px,100%)}
+.pod{display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;min-width:0}
+.pod .who{font-family:var(--f-display);font-weight:700;font-size:clamp(.9rem,3vw,1.5rem);min-height:3em;display:flex;flex-direction:column;justify-content:flex-end;opacity:0;transform:translateY(10px);transition:all .5s}
+.pod .who small{font-family:var(--f-mono);color:var(--sun);font-size:.7em;margin-top:4px}
+.pod.on .who{opacity:1;transform:none}
+.pod .blk{width:100%;border-radius:14px 14px 0 0;display:grid;place-items:center;font-family:var(--f-display);font-weight:900;font-size:clamp(2rem,7vw,4rem);color:var(--ink)}
+.pod.p1 .blk{height:min(38vh,260px);background:var(--sun)}
+.pod.p2 .blk{height:min(28vh,190px);background:var(--cyan)}
+.pod.p3 .blk{height:min(20vh,140px);background:var(--orange)}
+#confetti{position:fixed;inset:0;pointer-events:none;z-index:21}
+.sol h3{margin-top:6px}
+.sol table{margin-top:6px}
+.ok{color:var(--ok);font-weight:800}
+</style>
+
+<div id="app"></div>
+<canvas id="confetti" hidden></canvas>
+
+<script>
+(function(){
+"use strict";
+const DURATION = 30*60; // secunde
+const ADMIN_PIN = "2026";
+const SECRET = "SW26-ASE";
+const KEY_TEAM = "swfest_team_v1";
+const KEY_ADMIN = "swfest_admin_v1";
+
+/* ---------- Date joc ---------- */
+const BANDS = [
+  {id:"A", name:"Neon Wolves", t:4, d:10},
+  {id:"B", name:"Lila & The Tides", t:7, d:14},
+  {id:"C", name:"Basskraft", t:2, d:5},
+  {id:"D", name:"Cerul Roșu", t:5, d:12},
+  {id:"E", name:"Yuzu Collective", t:3, d:20}
+];
+const DEMAND = [20,30,50,60,40,40];
+
+const R1 = {
+  num:[
+    {id:"costA", pts:30, text:"Costul total al strategiei A (urmărirea cererii)", unit:"lei"},
+    {id:"costB", pts:30, text:"Costul total al strategiei B (forță de muncă constantă 40)", unit:"lei"},
+    {id:"costC", pts:30, text:"Costul total al strategiei C (mixtă)", unit:"lei"},
+    {id:"idle", pts:15, text:"Câți lucrători-săptămână inactivi are strategia B, în total?", unit:"lucr.-săpt."}
+  ],
+  mc:[
+    {id:"m1", pts:15, text:"De ce StageCrew nu poate „produce pe stoc” în săptămânile liniștite, pentru săptămânile aglomerate?",
+      opts:["Pentru că salariile sunt prea mari","Pentru că serviciile nu pot fi stocate și sunt perisabile","Pentru că legislația muncii interzice","Pentru că cererea este constantă"]},
+    {id:"m2", pts:15, text:"Când cererea crește semnificativ, care este prima pârghie folosită, de regulă, de manageri?",
+      opts:["Angajarea imediată de personal permanent","Reducerea prețurilor","Supramunca (ore suplimentare)","Demiterea personalului"]},
+    {id:"m3", pts:15, text:"Cererea scade pentru o perioadă de 2–3 luni. Ce se întâmplă, de regulă, cu lucrătorii?",
+      opts:["Sunt menținuți pe activități auxiliare de servire, iar apoi pot fi demiși","Sunt demiși imediat","Sunt trimiși obligatoriu în concediu fără plată","Sunt transferați la un concurent"]},
+    {id:"m4", pts:15, text:"Când este rațional ca firma să mențină nivelul forței de muncă la variații scurte ale cererii?",
+      opts:["Mereu, indiferent de costuri","Când salariile depășesc costurile fixe","Niciodată","Când ponderea cheltuielilor salariale în costul total este mai mică decât cea a costurilor fixe"]},
+    {id:"m5", pts:15, text:"Ce strategie îi recomandați managerului StageCrew, pe criteriul costului total?",
+      opts:["A – urmărirea cererii","B – forță de muncă constantă","C – strategia mixtă"]}
+  ]
+};
+const RULES = ["FCFS","SPT","EDD","LPT"];
+const R2 = { seqPts:15, metPts:15, mc:[
+  {id:"b1", pts:10, text:"Ce regulă dă cel mai mic timp mediu de finalizare?", opts:["FCFS","SPT","EDD","LPT"]},
+  {id:"b2", pts:10, text:"Ce regulă dă cea mai mică întârziere medie?", opts:["FCFS","SPT","EDD","LPT"]}
+]};
+const R3 = { mc:[
+  {id:"c1", pts:20, text:"Sâmbătă plouă toată ziua. Cererea la food court scade la jumătate, dar doar pentru 2 zile. Ce faci cu personalul?",
+    opts:["Demiți jumătate din personal","Păstrezi personalul și îl muți pe activități auxiliare (informare, acces, curățenie)","Angajezi temporari","Închizi food court-ul până la final"]},
+  {id:"c2", pts:20, text:"Se anunță un headliner surpriză. Cererea crește cu 30%, doar pentru o săptămână. Prima ta mișcare?",
+    opts:["Supramuncă pentru echipa existentă","Angajezi personal permanent","Demiți personalul mai lent","Nu faci nimic, clienții așteaptă"]},
+  {id:"c3", pts:20, text:"Organizatorul penalizează fiecare oră de întârziere față de termenul trupei. Ce regulă alegi pentru pregătirea scenei?",
+    opts:["LPT","FCFS","EDD","SPT"]},
+  {id:"c4", pts:20, text:"Directorul vrea ca trupele să fie gata, în medie, cât mai repede, ca să se elibereze backstage-ul. Ce regulă alegi?",
+    opts:["SPT","EDD","LPT","FCFS"]}
+]};
+
+// Cheia, codificată ușor ca să nu fie la vedere
+const KEY = JSON.parse(atob("eyJjb3N0QSI6Mjg4MDAwLCJjb3N0QiI6Mjk1MjAwLCJjb3N0QyI6Mjc1MDAwLCJpZGxlIjozMCwibTEiOjEsIm0yIjoyLCJtMyI6MCwibTQiOjMsIm01IjoyLCJzZXEiOnsiU1BUIjoiQ0VBREIiLCJFREQiOiJDQURCRSIsIkxQVCI6IkJEQUVDIn0sImZsb3ciOnsiRkNGUyI6MTMuNCwiU1BUIjoxMC4yLCJFREQiOjExLjYsIkxQVCI6MTV9LCJsYXRlIjp7IkZDRlMiOjMsIlNQVCI6MS44LCJFREQiOjEsIkxQVCI6NC40fSwiYjEiOjEsImIyIjoyLCJjMSI6MSwiYzIiOjAsImMzIjoyLCJjNCI6MH0="));
+
+const MAX = {r1:180, r2:185, r3:80, bonus:30};
+
+/* ---------- Utilitare ---------- */
+const $ = (s,el=document)=>el.querySelector(s);
+const app = $("#app");
+function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+function load(k){try{const v=localStorage.getItem(k);return v?JSON.parse(v):null;}catch(e){return null;}}
+function save(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
+function del(k){try{localStorage.removeItem(k);}catch(e){}}
+function fmtLei(n){return n.toLocaleString("ro-RO");}
+function parseLei(s){const d=String(s||"").replace(/[^\d]/g,"");return d?Number(d):NaN;}
+function parseDec(s){let t=String(s||"").trim().replace(/\s/g,"");if(!t)return NaN;if(t.includes(",")&&t.includes("."))t=t.replace(/\./g,"");t=t.replace(",",".");return Number(t);}
+function mmss(sec){sec=Math.max(0,Math.ceil(sec));return String(Math.floor(sec/60)).padStart(2,"0")+":"+String(sec%60).padStart(2,"0");}
+
+/* ---------- Cod de verificare (base32 Crockford, 45 biți) ---------- */
+const B32="0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+function fnv(str){let h=0x811c9dc5;for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,0x01000193)>>>0;}return h>>>0;}
+function encodeCode(team,r1,r2,r3,bonus){
+  const P=((((team*256+r1)*256+r2)*128+r3)*32+bonus);
+  const chk=fnv(SECRET+"|"+P)%2048;
+  let N=P*2048+chk, out="";
+  for(let i=0;i<9;i++){out=B32[N%32]+out;N=Math.floor(N/32);}
+  return out.slice(0,3)+"-"+out.slice(3,6)+"-"+out.slice(6);
+}
+function decodeCode(raw){
+  let s=String(raw||"").toUpperCase().replace(/[\s-]/g,"").replace(/O/g,"0").replace(/[IL]/g,"1");
+  if(s.length!==9)return null;
+  let N=0;for(const ch of s){const v=B32.indexOf(ch);if(v<0)return null;N=N*32+v;}
+  const chk=N%2048;let P=Math.floor(N/2048);
+  if(fnv(SECRET+"|"+P)%2048!==chk)return null;
+  const bonus=P%32;P=Math.floor(P/32);
+  const r3=P%128;P=Math.floor(P/128);
+  const r2=P%256;P=Math.floor(P/256);
+  const r1=P%256;const team=Math.floor(P/256);
+  if(team<1||r1>MAX.r1||r2>MAX.r2||r3>MAX.r3||bonus>MAX.bonus)return null;
+  return {team,r1,r2,r3,bonus,total:r1+r2+r3+bonus};
+}
+
+/* ---------- Punctare ---------- */
+function scoreR1(a){
+  let s=0;
+  for(const q of R1.num){const v=parseLei(a[q.id]);if(v===KEY[q.id])s+=q.pts;}
+  for(const q of R1.mc){if(a[q.id]!==undefined&&Number(a[q.id])===KEY[q.id])s+=q.pts;}
+  return s;
+}
+function scoreR2(a){
+  let s=0;
+  for(const r of ["SPT","EDD","LPT"]){if((a["seq_"+r]||"")===KEY.seq[r])s+=R2.seqPts;}
+  for(const r of RULES){
+    const f=parseDec(a["flow_"+r]), l=parseDec(a["late_"+r]);
+    if(!isNaN(f)&&Math.abs(f-KEY.flow[r])<=0.051)s+=R2.metPts;
+    if(!isNaN(l)&&Math.abs(l-KEY.late[r])<=0.051)s+=R2.metPts;
+  }
+  for(const q of R2.mc){if(a[q.id]!==undefined&&Number(a[q.id])===KEY[q.id])s+=q.pts;}
+  return s;
+}
+function scoreR3(a){
+  let s=0;for(const q of R3.mc){if(a[q.id]!==undefined&&Number(a[q.id])===KEY[q.id])s+=q.pts;}return s;
+}
+
+/* ---------- Stare ---------- */
+let S = load(KEY_TEAM);
+let tab = 1, tick=null, confirmRound=null, adminOK=false;
+
+function persist(){save(KEY_TEAM,S);}
+function remaining(){return DURATION-(Date.now()-S.start)/1000;}
+
+/* ---------- Ecran start ---------- */
+function renderStart(){
+  stopTick();
+  const members=[0,1,2,3,4,5].map(i=>`<input type="text" id="m${i}" placeholder="Membru ${i+1}${i<3?'':' (opțional)'}" autocomplete="off">`).join("");
+  app.innerHTML=`<div class="wrap stack">
+    <section class="hero">
+      <div class="eq" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+      <div class="eyebrow">MANAGEMENT OPERAȚIONAL · STUDIU DE CAZ</div>
+      <h1><span class="w">SoundWave</span> Fest<span class="o">OPS CHALLENGE</span></h1>
+      <p>Sunteți echipa de operațiuni a festivalului. Aveți 30 de minute să planificați personalul și să ordonați pregătirea scenei. Cine are cele mai bune decizii urcă pe podium.</p>
+      <div class="band" aria-hidden="true"><span>STAFFING · REGULI DE PRIORITATE · CRIZĂ · 3 RUNDE · 30 MINUTE · STAFFING · REGULI DE PRIORITATE · CRIZĂ · 3 RUNDE · 30 MINUTE · </span></div>
+    </section>
+
+    <form class="card stack" id="startForm" novalidate>
+      <h2>Înregistrați echipa</h2>
+      <div class="grid2">
+        <div class="field"><label for="teamNo">Nr. echipă</label><input type="number" id="teamNo" min="1" max="60" inputmode="numeric" placeholder="ex. 4"></div>
+        <div class="field"><label for="teamName">Numele echipei</label><input type="text" id="teamName" maxlength="28" placeholder="ex. Bass Drop" autocomplete="off"></div>
+      </div>
+      <div class="field"><label>Membrii echipei</label><div class="stack" style="gap:8px">${members}</div></div>
+      <div class="err" id="startErr" hidden></div>
+      <button class="btn pink block" type="submit">Pornește cronometrul · 30:00</button>
+      <p class="small muted">Folosiți un singur telefon pe echipă. Răspunsurile se salvează automat, chiar dacă reîncărcați pagina.</p>
+    </form>
+
+    <div class="card stack small">
+      <h3>Cum se joacă</h3>
+      <p><b>Runda 1 · Staffing</b> (180 p) planificarea agregat: angajare, demitere, supramuncă, inactivitate.</p>
+      <p><b>Runda 2 · Scena principală</b> (185 p) reguli de prioritate: FCFS, SPT, EDD, LPT.</p>
+      <p><b>Runda 3 · Criză</b> (80 p) decizii rapide în situații neprevăzute.</p>
+      <p><b>Bonus de viteză</b> până la 30 p: 1 punct pentru fiecare minut rămas când trimiteți toate rundele.</p>
+      <p class="muted">Fiecare rundă se trimite o singură dată. Scorul apare doar la final.</p>
+    </div>
+    <div style="text-align:center"><button class="link" id="toAdmin" type="button">Zona profesorului</button></div>
+  </div>`;
+  $("#toAdmin").onclick=()=>{location.hash="admin";renderAdmin();};
+  $("#startForm").onsubmit=e=>{
+    e.preventDefault();
+    const no=parseInt($("#teamNo").value,10);
+    const name=$("#teamName").value.trim();
+    const mem=[0,1,2,3,4,5].map(i=>$("#m"+i).value.trim()).filter(Boolean);
+    const err=$("#startErr");
+    if(!(no>=1&&no<=60)){err.textContent="Introduceți numărul echipei (între 1 și 60).";err.hidden=false;return;}
+    if(!name){err.textContent="Dați un nume echipei.";err.hidden=false;return;}
+    if(mem.length<3){err.textContent="Treceți cel puțin 3 membri.";err.hidden=false;return;}
+    S={team:no,name,members:mem,start:Date.now(),a:{},sent:{},scores:{},done:false,bonus:0};
+    persist();
+    try{navigator.wakeLock&&navigator.wakeLock.request("screen").catch(()=>{});}catch(e){}
+    tab=1;renderGame();
+  };
+}
+
+/* ---------- Ecran joc ---------- */
+function mcHTML(q,a,round){
+  const opts=q.opts.map((o,i)=>`<label class="opt"><input type="radio" name="${q.id}" value="${i}" ${String(a[q.id])===String(i)?"checked":""}><span>${esc(o)}</span></label>`).join("");
+  return `<div class="q"><div class="qh"><div class="qt">${esc(q.text)}</div><span class="pts">${q.pts}p</span></div><div class="opts">${opts}</div></div>`;
+}
+function submitBlock(r){
+  if(S.sent["r"+r])return `<div class="sent">✓ Runda ${r} a fost trimisă. Mergeți la runda următoare.</div>`;
+  const c=confirmRound===r;
+  return `<button class="btn ${c?'warn':'sun'} block" id="send" type="button">${c?'Confirmați? Răspunsurile nu se mai pot schimba':'Trimite Runda '+r}</button>`;
+}
+
+function round1(){
+  const a=S.a, dis=S.sent.r1?"disabled":"";
+  const dem=DEMAND.map((d,i)=>`<td class="n">${d}</td>`).join("");
+  return `<div class="stack">
+  <div class="stage s1 stack">
+    <span class="tag">RUNDA 1 · ~11 MIN</span>
+    <h2>Staffing la StageCrew</h2>
+    <p>StageCrew SRL asigură personalul de servire al festivalului: baruri, food court și acces. Planificați forța de muncă pe 6 săptămâni (pregătire + festival).</p>
+    <p>Un client neservit azi nu poate fi servit săptămâna viitoare. De aceea, capacitatea trebuie să acopere cererea <b>în fiecare săptămână</b>.</p>
+    <div class="tablewrap"><table><thead><tr><th>Săptămâna</th>${DEMAND.map((d,i)=>`<th class="n">S${i+1}</th>`).join("")}</tr></thead>
+      <tbody><tr><td>Lucrători necesari</td>${dem}</tr></tbody></table></div>
+    <p class="small"><b>La început (înainte de S1)</b> StageCrew are <b>30</b> de lucrători.</p>
+    <div class="card costs">
+      <span>Salariu (plătit și când lucrătorul e inactiv)</span><b>1.000 lei / lucr. / săpt.</b>
+      <span>Angajare</span><b>600 lei / pers.</b>
+      <span>Demitere</span><b>800 lei / pers.</b>
+      <span>Supramuncă, per lucrător-echivalent acoperit</span><b>1.500 lei</b>
+      <span>Limită supramuncă (8 ore în plus la 40)</span><b>max. 20% din forța de muncă</b>
+      <span>Temporari de la agenție (doar dacă nu ajunge supramunca)</span><b>1.800 lei / lucr. / săpt.</b>
+    </div>
+    <p class="small">Angajările și demiterile se fac la începutul săptămânii.</p>
+    <div class="strat"><b>A · Urmărirea cererii</b><br>Forța de muncă este egală cu cererea în fiecare săptămână. Angajați sau demiteți cât e nevoie.</div>
+    <div class="strat" style="border-color:var(--cyan)"><b>B · Forță de muncă constantă</b><br>Angajați 10 lucrători la începutul S1 (total 40) și păstrați 40 până la final. Deficitul se acoperă întâi cu supramuncă, apoi cu temporari. Surplusul rămâne inactiv.</div>
+    <div class="strat" style="border-color:var(--orange)"><b>C · Strategie mixtă</b><br>Păstrați 30 în S1–S2. Angajați 20 la începutul S3 (total 50). În S4 acoperiți deficitul cu supramuncă. La începutul S5 demiteți 10 (total 40).</div>
+  </div>
+  <fieldset class="stack" ${dis}>
+    ${R1.num.map(q=>`<div class="q"><div class="qh"><label class="qt" for="${q.id}">${esc(q.text)}</label><span class="pts">${q.pts}p</span></div>
+      <div class="unit"><input class="num" type="text" inputmode="numeric" id="${q.id}" data-k="${q.id}" value="${esc(a[q.id]||"")}" placeholder="ex. 250000" autocomplete="off"><span>${q.unit}</span></div></div>`).join("")}
+    ${R1.mc.map(q=>mcHTML(q,a,1)).join("")}
+  </fieldset>
+  ${submitBlock(1)}
+  </div>`;
+}
+
+function seqHTML(rule){
+  const cur=S.a["seq_"+rule]||"";
+  const slots=[0,1,2,3,4].map(i=>`<div class="slot ${cur[i]?'f':''}">${cur[i]||""}</div>`).join("");
+  const chips=BANDS.map(b=>`<button type="button" class="chip" data-seq="${rule}" data-id="${b.id}" ${cur.includes(b.id)||S.sent.r2?"disabled":""}>${b.id}</button>`).join("");
+  return `<div class="q"><div class="qh"><div class="qt">Ordinea după ${rule}</div><span class="pts">${R2.seqPts}p</span></div>
+    <div class="seq"><div class="slots">${slots}</div><div class="chips">${chips}<button type="button" class="chip reset" data-reset="${rule}" ${S.sent.r2?"disabled":""}>Șterge</button></div></div></div>`;
+}
+function round2(){
+  const a=S.a, dis=S.sent.r2?"disabled":"";
+  const rows=BANDS.map(b=>`<tr><td><b>${b.id}</b></td><td>${esc(b.name)}</td><td class="n">${b.t}</td><td class="n">${b.d}</td></tr>`).join("");
+  const grid=RULES.map(r=>`<div class="r">${r}</div>
+    <input class="num" type="text" inputmode="decimal" id="flow_${r}" data-k="flow_${r}" value="${esc(a["flow_"+r]||"")}" placeholder="ore" aria-label="Timp mediu de finalizare ${r}" autocomplete="off">
+    <input class="num" type="text" inputmode="decimal" id="late_${r}" data-k="late_${r}" value="${esc(a["late_"+r]||"")}" placeholder="ore" aria-label="Întârziere medie ${r}" autocomplete="off">`).join("");
+  return `<div class="stack">
+  <div class="stage s2 stack">
+    <span class="tag">RUNDA 2 · ~13 MIN</span>
+    <h2>Scena principală</h2>
+    <p>În ziua dinaintea festivalului, o singură echipă tehnică pregătește scena principală (montaj personalizat + soundcheck) pentru 5 trupe, pe rând. Toate trupele sunt disponibile de la ora 0.</p>
+    <p>Cererile au sosit în ordinea <b>A, B, C, D, E</b>. Termenul este ora până la care setup-ul trupei trebuie să fie gata.</p>
+    <div class="tablewrap card" style="padding:6px 8px"><table><thead><tr><th>Cod</th><th>Trupa</th><th class="n">Durată (ore)</th><th class="n">Termen (ora)</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <div class="card small stack" style="gap:6px">
+      <p><b>Timp de finalizare</b> = ora la care se termină pregătirea trupei.</p>
+      <p><b>Întârziere</b> = finalizare − termen, dacă rezultatul e pozitiv; altfel 0.</p>
+      <p><b>Media</b> = suma pentru cele 5 trupe ÷ 5. Scrieți cu o zecimală (ex. 12,6).</p>
+      <p class="muted">FCFS: primul venit, primul servit · SPT: cea mai scurtă durată · EDD: cel mai apropiat termen · LPT: cea mai lungă durată.</p>
+    </div>
+  </div>
+  <fieldset class="stack" ${dis}>
+    <div class="q"><div class="qh"><div class="qt">Ordinea după FCFS</div><span class="pts">dată</span></div><div class="slots">${"ABCDE".split("").map(c=>`<div class="slot f">${c}</div>`).join("")}</div></div>
+    ${seqHTML("SPT")}${seqHTML("EDD")}${seqHTML("LPT")}
+    <div class="q"><div class="qh"><div class="qt">Indicatorii pentru fiecare regulă</div><span class="pts">15p / căsuță</span></div>
+      <div class="mgrid"><div></div><div class="h">Timp mediu de finalizare</div><div class="h">Întârziere medie</div>${grid}</div></div>
+    ${R2.mc.map(q=>mcHTML(q,a,2)).join("")}
+  </fieldset>
+  ${submitBlock(2)}
+  </div>`;
+}
+function round3(){
+  const dis=S.sent.r3?"disabled":"";
+  return `<div class="stack">
+  <div class="stage s3 stack">
+    <span class="tag">RUNDA 3 · ~6 MIN</span>
+    <h2>Criză în timpul festivalului</h2>
+    <p>Festivalul a început. Apar situații neprevăzute și trebuie să decideți repede. Folosiți ce ați învățat în rundele 1 și 2.</p>
+  </div>
+  <fieldset class="stack" ${dis}>${R3.mc.map(q=>mcHTML(q,S.a,3)).join("")}</fieldset>
+  ${submitBlock(3)}
+  </div>`;
+}
+
+function renderGame(){
+  if(S.done){renderResults();return;}
+  const sentMark=r=>S.sent["r"+r]?"✓ trimisă":"";
+  app.innerHTML=`<div class="wrap">
+    <div class="topbar"><div class="team">#${S.team} · ${esc(S.name)}</div><div class="timer" id="timer">${mmss(remaining())}</div></div>
+    <div class="tabs" role="tablist">
+      <button class="tab t1" role="tab" aria-selected="${tab===1}" data-tab="1">Runda 1<small>${sentMark(1)||"Staffing"}</small></button>
+      <button class="tab t2" role="tab" aria-selected="${tab===2}" data-tab="2">Runda 2<small>${sentMark(2)||"Scena"}</small></button>
+      <button class="tab t3" role="tab" aria-selected="${tab===3}" data-tab="3">Runda 3<small>${sentMark(3)||"Criză"}</small></button>
+    </div>
+    <div id="round">${tab===1?round1():tab===2?round2():round3()}</div>
+  </div>`;
+  app.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{tab=Number(b.dataset.tab);confirmRound=null;renderGame();window.scrollTo(0,0);});
+  app.querySelectorAll("input[data-k]").forEach(inp=>inp.oninput=()=>{S.a[inp.dataset.k]=inp.value;persist();});
+  app.querySelectorAll("input[type=radio]").forEach(inp=>inp.onchange=()=>{S.a[inp.name]=Number(inp.value);persist();});
+  app.querySelectorAll("[data-seq]").forEach(b=>b.onclick=()=>{const k="seq_"+b.dataset.seq;const cur=S.a[k]||"";if(cur.length<5&&!cur.includes(b.dataset.id)){S.a[k]=cur+b.dataset.id;persist();rerenderKeepScroll();}});
+  app.querySelectorAll("[data-reset]").forEach(b=>b.onclick=()=>{S.a["seq_"+b.dataset.reset]="";persist();rerenderKeepScroll();});
+  const send=$("#send");
+  if(send)send.onclick=()=>{
+    if(confirmRound!==tab){confirmRound=tab;rerenderKeepScroll();return;}
+    lockRound(tab);confirmRound=null;
+    if(S.sent.r1&&S.sent.r2&&S.sent.r3){finish(true);return;}
+    const next=[1,2,3].find(r=>!S.sent["r"+r]);tab=next;renderGame();window.scrollTo(0,0);
+  };
+  startTick();
+}
+function rerenderKeepScroll(){const y=window.scrollY;renderGame();window.scrollTo(0,y);}
+function lockRound(r){
+  if(S.sent["r"+r])return;
+  S.sent["r"+r]=true;
+  S.scores["r"+r]= r===1?scoreR1(S.a): r===2?scoreR2(S.a): scoreR3(S.a);
+  persist();
+}
+function finish(early){
+  [1,2,3].forEach(lockRound);
+  S.bonus= early? Math.max(0,Math.min(MAX.bonus,Math.floor(remaining()/60))) : 0;
+  S.done=true;S.end=Date.now();persist();
+  stopTick();renderResults();
+}
+function startTick(){
+  stopTick();
+  tick=setInterval(()=>{
+    const rem=remaining();const t=$("#timer");
+    if(t){t.textContent=mmss(rem);t.classList.toggle("low",rem<=300);t.classList.toggle("pulse",rem<=60);}
+    if(rem<=0){finish(false);}
+  },500);
+}
+function stopTick(){if(tick){clearInterval(tick);tick=null;}}
+
+/* ---------- Rezultate echipă ---------- */
+function renderResults(){
+  const r1=S.scores.r1||0,r2=S.scores.r2||0,r3=S.scores.r3||0,b=S.bonus||0;
+  const total=r1+r2+r3+b;
+  const code=encodeCode(S.team,r1,r2,r3,b);
+  app.innerHTML=`<div class="wrap stack">
+    <section class="hero">
+      <div class="eyebrow">ECHIPA #${S.team} · ${esc(S.name).toUpperCase()}</div>
+      <h1 style="font-size:1.6rem">Ați terminat!</h1>
+      <p>${S.bonus>0?`Ați trimis cu timp rămas și ați câștigat ${b} puncte bonus.`:"Timpul s-a încheiat și răspunsurile au fost trimise automat."}</p>
+      <div class="band" aria-hidden="true"><span>SOUNDWAVE FEST · OPS CHALLENGE · SOUNDWAVE FEST · OPS CHALLENGE · SOUNDWAVE FEST · OPS CHALLENGE · </span></div>
+    </section>
+    <div class="card stack" style="text-align:center;align-items:center">
+      <div class="label">Scor total</div>
+      <div class="score">${total}</div>
+      <div class="muted small">din ${MAX.r1+MAX.r2+MAX.r3+MAX.bonus} posibile</div>
+    </div>
+    <div class="chipsrow">
+      <div class="mini" style="background:var(--pink-soft)"><span>Runda 1</span><b>${r1}</b></div>
+      <div class="mini" style="background:var(--cyan-soft)"><span>Runda 2</span><b>${r2}</b></div>
+      <div class="mini" style="background:var(--orange-soft)"><span>Runda 3</span><b>${r3}</b></div>
+      <div class="mini" style="background:var(--sun-soft)"><span>Bonus</span><b>${b}</b></div>
+    </div>
+    <div class="card stack">
+      <div class="label">Codul echipei, pentru profesor</div>
+      <div class="code">${code}</div>
+      <p class="small muted">Arătați acest cod profesorului. Codul conține numărul echipei și scorurile, deci nu poate fi modificat.</p>
+    </div>
+    <div class="card stack small">
+      <div class="label">Membri</div>
+      <p>${S.members.map(esc).join(" · ")}</p>
+    </div>
+    <p class="small muted" style="text-align:center">Soluțiile le discutăm împreună, după clasament.</p>
+  </div>`;
+}
+
+/* ---------- Admin ---------- */
+let A = load(KEY_ADMIN)||{entries:[]};
+let showSol=false, wipeConfirm=false;
+function persistA(){save(KEY_ADMIN,A);}
+function ranked(){return [...A.entries].sort((x,y)=>y.total-x.total||y.bonus-x.bonus||x.team-y.team);}
+
+function renderAdmin(){
+  stopTick();
+  if(!adminOK){
+    app.innerHTML=`<div class="wrap stack" style="max-width:440px">
+      <section class="hero"><div class="eyebrow">ZONA PROFESORULUI</div><h1 style="font-size:1.5rem">Clasament SoundWave</h1><div class="band" aria-hidden="true"><span>ADMIN · CLASAMENT · PODIUM · SOLUȚII · ADMIN · CLASAMENT · PODIUM · SOLUȚII · </span></div></section>
+      <form class="card stack" id="pinForm"><div class="field"><label for="pin">PIN</label><input type="password" id="pin" inputmode="numeric" autocomplete="off"></div>
+      <div class="err" id="pinErr" hidden>PIN greșit.</div>
+      <button class="btn block" type="submit">Intră</button></form>
+      <div style="text-align:center"><button class="link" id="back" type="button">Înapoi la joc</button></div></div>`;
+    $("#pinForm").onsubmit=e=>{e.preventDefault();if($("#pin").value===ADMIN_PIN){adminOK=true;renderAdmin();}else{$("#pinErr").hidden=false;}};
+    $("#back").onclick=goGame;
+    return;
+  }
+  const list=ranked();
+  const rows=list.map((e,i)=>`<div class="brow ${i<3?'g'+(i+1):''}">
+      <div class="rk">${i+1}</div>
+      <div class="nm"><b>Echipa ${e.team}</b><span class="small muted">${esc(e.name||"")}</span></div>
+      <div class="c">${e.r1}</div><div class="c">${e.r2}</div><div class="c">${e.r3}</div><div class="c">${e.bonus}</div>
+      <div class="tot">${e.total}</div>
+      <button class="x" data-del="${e.team}" aria-label="Șterge echipa ${e.team}">×</button></div>`).join("");
+  app.innerHTML=`<div class="wrap wide stack">
+    <div class="row" style="justify-content:space-between">
+      <h1 style="font-size:clamp(1.3rem,4vw,2rem)"><span style="color:var(--pink)">SoundWave</span> · Clasament</h1>
+      <div class="row">
+        <button class="btn sun" id="podBtn" type="button" ${list.length?"":"disabled"}>Podium</button>
+        <button class="btn ghost" id="solBtn" type="button">${showSol?"Ascunde soluțiile":"Soluții"}</button>
+      </div>
+    </div>
+    <form class="card row" id="addForm" style="align-items:flex-end">
+      <div class="field" style="flex:2 1 220px"><label for="codeIn">Codul echipei</label><input type="text" id="codeIn" placeholder="XXX-XXX-XXX" autocomplete="off" autocapitalize="characters" style="font-family:var(--f-mono);letter-spacing:.06em"></div>
+      <div class="field" style="flex:1 1 160px"><label for="nameIn">Nume echipă (opțional)</label><input type="text" id="nameIn" maxlength="28" autocomplete="off"></div>
+      <button class="btn pink" type="submit">Adaugă</button>
+      <div id="addMsg" class="small" style="flex-basis:100%" hidden></div>
+    </form>
+    ${list.length?`<div class="board"><div class="brow head"><div>Loc</div><div>Echipa</div><div class="c">R1</div><div class="c">R2</div><div class="c">R3</div><div class="c">Bonus</div><div style="text-align:right">Total</div><div></div></div>${rows}</div>`
+      :`<div class="empty">Clasamentul apare aici. Introduceți codurile afișate pe telefoanele echipelor la final (${MAX.r1+MAX.r2+MAX.r3+MAX.bonus} puncte maxim).</div>`}
+    ${showSol?solutionsHTML():""}
+    <div class="row" style="justify-content:space-between">
+      <button class="link" id="back" type="button">Înapoi la joc</button>
+      <button class="btn ${wipeConfirm?'warn':'ghost'}" id="wipe" type="button">${wipeConfirm?"Confirmați ștergerea clasamentului":"Golește clasamentul"}</button>
+    </div>
+  </div>`;
+  $("#addForm").onsubmit=e=>{
+    e.preventDefault();
+    const d=decodeCode($("#codeIn").value), msg=$("#addMsg");
+    if(!d){msg.innerHTML=`<span class="err">Cod invalid. Verificați caracterele (9 litere și cifre).</span>`;msg.hidden=false;return;}
+    const name=$("#nameIn").value.trim();
+    const existing=A.entries.find(x=>x.team===d.team);
+    A.entries=A.entries.filter(x=>x.team!==d.team);
+    A.entries.push({...d,name:name||(existing&&existing.name)||""});
+    persistA();wipeConfirm=false;renderAdmin();
+    const m=$("#addMsg");m.innerHTML=`<span class="ok">Echipa ${d.team} adăugată: ${d.total} puncte${existing?" (înlocuită)":""}.</span>`;m.hidden=false;
+    $("#codeIn").focus();
+  };
+  app.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{A.entries=A.entries.filter(x=>x.team!==Number(b.dataset.del));persistA();renderAdmin();});
+  $("#solBtn").onclick=()=>{showSol=!showSol;renderAdmin();};
+  $("#podBtn").onclick=showPodium;
+  $("#back").onclick=goGame;
+  $("#wipe").onclick=()=>{if(!wipeConfirm){wipeConfirm=true;renderAdmin();return;}A={entries:[]};persistA();wipeConfirm=false;renderAdmin();};
+}
+
+function solutionsHTML(){
+  function sched(order){let t=0;return order.split("").map(id=>{const b=BANDS.find(x=>x.id===id);t+=b.t;return {id,t:b.t,c:t,d:b.d,l:Math.max(0,t-b.d)};});}
+  const tables=["FCFS","SPT","EDD","LPT"].map(r=>{
+    const ord=r==="FCFS"?"ABCDE":KEY.seq[r];const s=sched(ord);
+    const sc=s.reduce((x,y)=>x+y.c,0), sl=s.reduce((x,y)=>x+y.l,0);
+    return `<div class="card" style="min-width:0"><h3>${r} · ${ord.split("").join(" → ")}</h3><div class="tablewrap"><table>
+      <thead><tr><th>Trupa</th><th class="n">Durată</th><th class="n">Finalizare</th><th class="n">Termen</th><th class="n">Întârziere</th></tr></thead>
+      <tbody>${s.map(x=>`<tr><td>${x.id}</td><td class="n">${x.t}</td><td class="n">${x.c}</td><td class="n">${x.d}</td><td class="n">${x.l}</td></tr>`).join("")}
+      <tr><td><b>Total</b></td><td></td><td class="n"><b>${sc}</b></td><td></td><td class="n"><b>${sl}</b></td></tr></tbody></table></div>
+      <p class="small" style="margin-top:6px">Timp mediu <b>${(sc/5).toFixed(1).replace(".",",")}</b> ore · Întârziere medie <b>${(sl/5).toFixed(1).replace(".",",")}</b> ore · Nr. mediu de trupe în sistem ${(sc/21).toFixed(2).replace(".",",")}</p></div>`;
+  }).join("");
+  return `<section class="stack sol">
+    <h2 style="color:var(--pink)">Soluții · Runda 1</h2>
+    <div class="card stack small">
+      <div class="tablewrap"><table>
+        <thead><tr><th>Strategie</th><th class="n">Salarii</th><th class="n">Angajări</th><th class="n">Demiteri</th><th class="n">Supramuncă</th><th class="n">Temporari</th><th class="n">Total</th></tr></thead>
+        <tbody>
+          <tr><td>A · Urmărire (30→20→30→50→60→40→40)</td><td class="n">240.000</td><td class="n">40 × 600 = 24.000</td><td class="n">30 × 800 = 24.000</td><td class="n">0</td><td class="n">0</td><td class="n"><b>288.000</b></td></tr>
+          <tr><td>B · Constantă 40</td><td class="n">240.000</td><td class="n">10 × 600 = 6.000</td><td class="n">0</td><td class="n">(8+8) × 1.500 = 24.000</td><td class="n">(2+12) × 1.800 = 25.200</td><td class="n"><b>295.200</b></td></tr>
+          <tr><td>C · Mixtă (30,30,50,50,40,40)</td><td class="n">240.000</td><td class="n">20 × 600 = 12.000</td><td class="n">10 × 800 = 8.000</td><td class="n">10 × 1.500 = 15.000</td><td class="n">0</td><td class="n"><b class="ok">275.000</b></td></tr>
+        </tbody></table></div>
+      <p>B: supramunca maximă este 20% × 40 = 8. S3 are deficit 10 (8 supramuncă + 2 temporari), S4 are deficit 20 (8 + 12). Inactivitate: S1 20 + S2 10 = <b>30</b> lucrători-săptămână.</p>
+      <p>C: în S4 deficitul este 10, iar limita de supramuncă este 20% × 50 = 10, deci nu e nevoie de temporari.</p>
+      <p>Grilă: m1 servicii nestocabile · m2 supramunca · m3 activități auxiliare, apoi demitere · m4 ponderea salariilor &lt; costuri fixe · m5 strategia C.</p>
+    </div>
+    <h2 style="color:var(--cyan)">Soluții · Runda 2</h2>
+    <div class="grid2" style="grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr))">${tables}</div>
+    <div class="card small"><p>SPT minimizează timpul mediu de finalizare (10,2). EDD minimizează întârzierea medie (1,0). LPT e cea mai slabă pe ambele criterii.</p></div>
+    <h2 style="color:var(--orange)">Soluții · Runda 3</h2>
+    <div class="card small stack" style="gap:6px">
+      <p>c1 Păstrezi personalul pe activități auxiliare: scădere scurtă, iar angajarea/demiterea costă.</p>
+      <p>c2 Supramuncă: creștere scurtă, prima pârghie.</p>
+      <p>c3 EDD: penalizarea vine din întârzieri.</p>
+      <p>c4 SPT: minimizează timpul mediu de finalizare.</p>
+    </div>
+  </section>`;
+}
+
+function showPodium(){
+  const list=ranked().slice(0,3);
+  const ov=document.createElement("div");ov.className="podium";
+  const pod=(i,cls)=>{const e=list[i];return `<div class="pod ${cls}" data-i="${i}"><div class="who">${e?`Echipa ${e.team}${e.name?`<span style="font-size:.7em;color:#D9D6FF">${esc(e.name)}</span>`:""}<small>${e.total} p</small>`:"—"}</div><div class="blk">${i+1}</div></div>`;};
+  ov.innerHTML=`<div class="label" style="color:var(--sun)">SOUNDWAVE FEST · OPS CHALLENGE</div>
+    <div class="pods">${pod(1,"p2")}${pod(0,"p1")}${pod(2,"p3")}</div>
+    <div class="row" style="justify-content:center"><button class="btn sun" id="rev" type="button">Dezvăluie locul 3</button><button class="btn ghost" id="cls" type="button" style="color:#fff">Închide</button></div>`;
+  document.body.appendChild(ov);
+  let step=2;
+  const rev=$("#rev",ov);
+  rev.onclick=()=>{
+    while(step>=0&&!list[step])step--;
+    if(step<0){return;}
+    ov.querySelector(`.pod[data-i="${step}"]`).classList.add("on");
+    if(step===0){confetti();rev.hidden=true;}
+    step--;
+    if(step>=0)rev.textContent=`Dezvăluie locul ${step+1}`;
+  };
+  $("#cls",ov).onclick=()=>{ov.remove();stopConfetti();};
+}
+
+/* ---------- Confetti ---------- */
+let confRAF=null;
+function confetti(){
+  if(window.matchMedia("(prefers-reduced-motion: reduce)").matches)return;
+  const c=$("#confetti");c.hidden=false;const ctx=c.getContext("2d");
+  const W=c.width=innerWidth,H=c.height=innerHeight;
+  const cols=["#FF2E7E","#00B4D8","#FFC83D","#FF8A1F","#6B4BFF","#5BCF4A"];
+  const P=Array.from({length:180},()=>({x:Math.random()*W,y:-20-Math.random()*H*.6,vx:(Math.random()-.5)*3,vy:2+Math.random()*4,r:Math.random()*6.28,vr:(Math.random()-.5)*.3,s:6+Math.random()*8,c:cols[Math.floor(Math.random()*cols.length)]}));
+  let t=0;
+  (function f(){ctx.clearRect(0,0,W,H);P.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.r+=p.vr;ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.r);ctx.fillStyle=p.c;ctx.fillRect(-p.s/2,-p.s/4,p.s,p.s/2);ctx.restore();});
+    t++;if(t<360)confRAF=requestAnimationFrame(f);else stopConfetti();})();
+}
+function stopConfetti(){if(confRAF)cancelAnimationFrame(confRAF);confRAF=null;const c=$("#confetti");c.getContext("2d").clearRect(0,0,c.width,c.height);c.hidden=true;}
+
+/* ---------- Navigare ---------- */
+function goGame(){
+  try{history.replaceState(null,"",location.pathname+location.search);}catch(e){}
+  route(true);
+}
+function route(forceGame){
+  if(!forceGame&&location.hash==="#admin"){renderAdmin();return;}
+  if(S&&S.team){ if(!S.done&&remaining()<=0){finish(false);return;} renderGame(); }
+  else renderStart();
+}
+window.addEventListener("hashchange",()=>route(false));
+route(false);
+})();
+</script>
